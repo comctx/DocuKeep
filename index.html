@@ -190,6 +190,17 @@ textarea{resize:vertical}
   margin:9px 0;
 }
 .doc .icon{font-size:26px}
+
+.doc .thumb{
+  width:50px;
+  height:62px;
+  border-radius:8px;
+  object-fit:cover;
+  background:#f1f3f2;
+  border:1px solid var(--line);
+  flex:0 0 auto;
+}
+
 .doc .info{flex:1;min-width:0}
 .doc .info strong{
   display:block;
@@ -731,9 +742,10 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
 <script>
 const DB_NAME = 'docukeep_secure_v2';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
+const PENDING_STORE = 'pending';
 const MAX_IMAGE_SIDE = 1200;
 const JPEG_QUALITY = 0.72;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
@@ -773,6 +785,10 @@ function openDB(){
 
       if(!d.objectStoreNames.contains(DOC_STORE)){
         d.createObjectStore(DOC_STORE,{keyPath:'id'});
+      }
+
+      if(!d.objectStoreNames.contains(PENDING_STORE)){
+        d.createObjectStore(PENDING_STORE,{keyPath:'id'});
       }
     };
 
@@ -829,6 +845,69 @@ function idbClear(store){
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+async function recoverPendingWrites(){
+  const pending = await idbGetAll(PENDING_STORE);
+
+  if(!pending.length) return;
+
+  for(const row of pending){
+    await idbPut(DOC_STORE,row);
+    await idbDelete(PENDING_STORE,row.id);
+  }
+}
+
+async function pageFingerprint(dataUrl){
+  const bytes = new TextEncoder().encode(dataUrl);
+  const digest = await crypto.subtle.digest('SHA-256',bytes);
+
+  return Array.from(new Uint8Array(digest))
+    .map(b=>b.toString(16).padStart(2,'0'))
+    .join('');
+}
+
+async function makeThumbnail(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+
+    img.onload = ()=>{
+      const maxSide = 220;
+      const scale = Math.min(1,maxSide/Math.max(img.width,img.height));
+      const canvas = document.createElement('canvas');
+
+      canvas.width = Math.max(1,Math.round(img.width*scale));
+      canvas.height = Math.max(1,Math.round(img.height*scale));
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+      resolve(canvas.toDataURL('image/jpeg',0.55));
+    };
+
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+async function ensureDocDerivedData(doc){
+  let changed = false;
+
+  for(const page of doc.pages || []){
+    if(!page.hash && page.data){
+      page.hash = await pageFingerprint(page.data);
+      changed = true;
+    }
+  }
+
+  if(!doc.thumbnail && doc.pages && doc.pages[0] && doc.pages[0].data){
+    try{
+      doc.thumbnail = await makeThumbnail(doc.pages[0].data);
+      changed = true;
+    }catch(err){}
+  }
+
+  return changed;
 }
 
 function downloadTextFile(filename,text){
@@ -1010,9 +1089,15 @@ async function loadDocuments(){
       if(!doc.createdAt) doc.createdAt = doc.id || Date.now();
       if(!doc.updatedAt) doc.updatedAt = doc.createdAt;
 
+      let derivedChanged = await ensureDocDerivedData(doc);
+
       if(doc.schemaVersion < SCHEMA_VERSION){
         doc.schemaVersion = SCHEMA_VERSION;
         doc.updatedAt = Date.now();
+        derivedChanged = true;
+      }
+
+      if(derivedChanged){
         await persistDoc(doc);
       }
 
@@ -1039,13 +1124,23 @@ async function persistDoc(doc){
   doc.updatedAt = Date.now();
   doc.schemaVersion = SCHEMA_VERSION;
 
+  await ensureDocDerivedData(doc);
+
   const encrypted = await encryptObject(doc,cryptoKey);
 
-  await idbPut(DOC_STORE,{
+  const row = {
     id:doc.id,
     iv:encrypted.iv,
     cipher:encrypted.cipher
-  });
+  };
+
+  // Crash-safe two-step write:
+  // 1) save the complete encrypted record to a pending store
+  // 2) commit it to the main document store
+  // 3) clear the pending copy
+  await idbPut(PENDING_STORE,row);
+  await idbPut(DOC_STORE,row);
+  await idbDelete(PENDING_STORE,doc.id);
 }
 
 function showSetup(){
@@ -1210,14 +1305,41 @@ document.getElementById('exportBackupBtn').addEventListener('click',async()=>{
       docs:rows
     };
 
+    // Verify the complete backup structure and every encrypted document
+    // before presenting the backup as successful.
+    const verificationText = JSON.stringify(backup);
+    const parsed = JSON.parse(verificationText);
+
+    if(
+      parsed.format !== 'DocuKeepEncryptedBackup' ||
+      !parsed.config ||
+      !parsed.config.vault ||
+      !Array.isArray(parsed.docs)
+    ){
+      throw new Error('Backup verification failed');
+    }
+
+    for(const row of parsed.docs){
+      if(
+        typeof row.id !== 'number' ||
+        !Array.isArray(row.iv) ||
+        !Array.isArray(row.cipher)
+      ){
+        throw new Error('Backup record verification failed');
+      }
+
+      // AES-GCM authentication proves the encrypted record is intact.
+      await decryptObject(row,cryptoKey);
+    }
+
     const stamp = new Date().toISOString().slice(0,10);
     downloadTextFile(
       `DocuKeep_Backup_${stamp}.json`,
-      JSON.stringify(backup)
+      verificationText
     );
 
     status.textContent =
-      `Encrypted backup exported (${rows.length} document record${rows.length===1?'':'s'}).`;
+      `Encrypted backup verified and exported (${rows.length} document record${rows.length===1?'':'s'}).`;
 
   }catch(err){
     status.textContent = 'Could not create the backup file.';
@@ -1252,6 +1374,7 @@ document.getElementById('restoreBackupInput').addEventListener('change',async e=
 
     // Replace the two stores only after the backup has been fully parsed and validated.
     await idbClear(DOC_STORE);
+    await idbClear(PENDING_STORE);
     await idbClear(CONFIG_STORE);
 
     await idbPut(CONFIG_STORE,backup.config.vault);
@@ -1344,13 +1467,22 @@ async function addFiles(fileList){
   document.getElementById('pageStatus').textContent =
     'Adding pages...';
 
+  let duplicateCount = 0;
+
   for(const file of files){
     try{
       const data = await fileToCompressedDataURL(file);
+      const hash = await pageFingerprint(data);
+
+      if(workingPages.some(p=>p.hash===hash)){
+        duplicateCount += 1;
+        continue;
+      }
 
       workingPages.push({
         label:'',
-        data
+        data,
+        hash
       });
     }catch(err){}
   }
@@ -1359,7 +1491,8 @@ async function addFiles(fileList){
   renderWorkingPages();
 
   document.getElementById('pageStatus').textContent =
-    workingPages.length + ' page(s) ready.';
+    workingPages.length + ' page(s) ready.' +
+    (duplicateCount ? ` ${duplicateCount} duplicate page${duplicateCount===1?' was':'s were'} skipped.` : '');
 }
 
 function relabelWorkingPages(){
@@ -1499,9 +1632,19 @@ document.getElementById('capturePhotoBtn').addEventListener('click',async()=>{
 
   const data = canvas.toDataURL('image/jpeg',JPEG_QUALITY);
 
+  const hash = await pageFingerprint(data);
+
+  if(workingPages.some(p=>p.hash===hash)){
+    document.getElementById('pageStatus').textContent =
+      'That page appears to be a duplicate, so it was not added.';
+    stopCamera();
+    return;
+  }
+
   workingPages.push({
     label:'',
-    data
+    data,
+    hash
   });
 
   relabelWorkingPages();
@@ -1571,7 +1714,9 @@ function docRow(doc){
   div.className = 'doc';
 
   div.innerHTML = `
-    <div class="icon">📄</div>
+    ${doc.thumbnail
+      ? `<img class="thumb" src="${doc.thumbnail}" alt="">`
+      : `<div class="icon">📄</div>`}
 
     <div class="info">
       <strong>${esc(doc.name)}</strong>
@@ -1876,6 +2021,9 @@ function openDoc(id,from){
 
       [doc.pages[i-1],doc.pages[i]] = [doc.pages[i],doc.pages[i-1]];
       relabelDocPages(doc);
+      if(doc.pages[0] && doc.pages[0].data){
+        doc.thumbnail = await makeThumbnail(doc.pages[0].data);
+      }
       await persistDoc(doc);
       openDoc(doc.id,previousView);
       document.getElementById('viewerStatus').textContent = 'Page moved up.';
@@ -1889,6 +2037,9 @@ function openDoc(id,from){
 
       [doc.pages[i+1],doc.pages[i]] = [doc.pages[i],doc.pages[i+1]];
       relabelDocPages(doc);
+      if(doc.pages[0] && doc.pages[0].data){
+        doc.thumbnail = await makeThumbnail(doc.pages[0].data);
+      }
       await persistDoc(doc);
       openDoc(doc.id,previousView);
       document.getElementById('viewerStatus').textContent = 'Page moved down.';
@@ -1904,6 +2055,10 @@ function openDoc(id,from){
 
       try{
         doc.pages[i].data = await rotatePageData(doc.pages[i].data);
+        doc.pages[i].hash = await pageFingerprint(doc.pages[i].data);
+        if(i===0){
+          doc.thumbnail = await makeThumbnail(doc.pages[i].data);
+        }
         await persistDoc(doc);
         openDoc(doc.id,previousView);
         document.getElementById('viewerStatus').textContent = 'Page rotated.';
@@ -1930,6 +2085,9 @@ function openDoc(id,from){
 
       doc.pages.splice(i,1);
       relabelDocPages(doc);
+      if(doc.pages[0] && doc.pages[0].data){
+        doc.thumbnail = await makeThumbnail(doc.pages[0].data);
+      }
       await persistDoc(doc);
       openDoc(doc.id,previousView);
 
@@ -2059,16 +2217,34 @@ document.getElementById('viewerAddPage')
         20-doc.pages.length
       );
 
+    let duplicateCount = 0;
+
     for(const file of files){
       try{
+        const data = await fileToCompressedDataURL(file);
+        const hash = await pageFingerprint(data);
+
+        if(doc.pages.some(p=>p.hash===hash)){
+          duplicateCount += 1;
+          continue;
+        }
+
         doc.pages.push({
           label:'',
-          data:await fileToCompressedDataURL(file)
+          data,
+          hash
         });
       }catch(err){}
     }
 
     relabelDocPages(doc);
+
+    // Rebuild the cached thumbnail only if the first page changed.
+    if(doc.pages[0] && doc.pages[0].data){
+      try{
+        doc.thumbnail = await makeThumbnail(doc.pages[0].data);
+      }catch(err){}
+    }
 
     await persistDoc(doc);
 
@@ -2080,7 +2256,9 @@ document.getElementById('viewerAddPage')
     );
 
     document.getElementById('viewerStatus').textContent =
-      'Page added securely.';
+      duplicateCount
+        ? `Page added securely. ${duplicateCount} duplicate page${duplicateCount===1?' was':'s were'} skipped.`
+        : 'Page added securely.';
   });
 
 document.getElementById('deleteDoc')
@@ -2119,6 +2297,8 @@ async function init(){
 
   try{
     db = await openDB();
+
+    await recoverPendingWrites();
 
     const currentSchema = await idbGet(CONFIG_STORE,'schema');
 
