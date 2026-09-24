@@ -1,0 +1,45 @@
+workflows:
+  docukeep-ios-testflight:
+    name: DocuKeep iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: Codemagic
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.donaldreckman.docukeep
+      vars:
+        XCODE_SCHEME: DocuKeep
+        XCODE_PROJECT: DocuKeep.xcodeproj
+
+    scripts:
+      - name: Verify Xcode project
+        script: |
+          xcodebuild -list -project "$XCODE_PROJECT"
+
+      - name: Set build number
+        script: |
+          xcrun agvtool new-version -all "$BUILD_NUMBER"
+
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
