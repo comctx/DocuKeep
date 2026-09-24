@@ -484,13 +484,13 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
     <div class="edit-actions no-print">
       <button id="exportBackupBtn" type="button" class="secondary">
-        ⬇️ Export Encrypted Backup
+        ⬇️ Save Encrypted Backup
       </button>
 
       <label class="secondary"
              style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
         ⬆️ Restore Backup
-        <input id="restoreBackupInput" type="file" accept="application/json,.json"
+        <input id="restoreBackupInput" type="file" accept=".docukeep,application/octet-stream,application/json,.json"
                style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
       </label>
     </div>
@@ -910,18 +910,53 @@ async function ensureDocDerivedData(doc){
   return changed;
 }
 
-function downloadTextFile(filename,text){
-  const blob = new Blob([text],{type:'application/json'});
+async function saveBackupFile(filename,text){
+  const blob = new Blob(
+    [text],
+    {type:'application/octet-stream'}
+  );
+
+  const file = new File(
+    [blob],
+    filename,
+    {type:'application/octet-stream'}
+  );
+
+  const isiPhoneOrIPad =
+    /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if(
+    isiPhoneOrIPad &&
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({files:[file]})
+  ){
+    await navigator.share({
+      title:'DocuKeep Encrypted Backup',
+      text:'Save this encrypted DocuKeep backup somewhere safe.',
+      files:[file]
+    });
+
+    return 'shared';
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
 
   a.href = url;
   a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+
   document.body.appendChild(a);
   a.click();
   a.remove();
 
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  setTimeout(()=>{
+    URL.revokeObjectURL(url);
+  },5000);
+
+  return 'downloaded';
 }
 
 async function deriveKey(pin,saltArray){
@@ -1333,13 +1368,17 @@ document.getElementById('exportBackupBtn').addEventListener('click',async()=>{
     }
 
     const stamp = new Date().toISOString().slice(0,10);
-    downloadTextFile(
-      `DocuKeep_Backup_${stamp}.json`,
+    const filename = `DocuKeep_Backup_${stamp}.docukeep`;
+
+    const result = await saveBackupFile(
+      filename,
       verificationText
     );
 
     status.textContent =
-      `Encrypted backup verified and exported (${rows.length} document record${rows.length===1?'':'s'}).`;
+      result === 'shared'
+        ? `Encrypted backup verified. Use the share sheet to Save to Files.`
+        : `Encrypted backup verified and downloaded as ${filename}.`;
 
   }catch(err){
     status.textContent = 'Could not create the backup file.';
