@@ -339,6 +339,343 @@ textarea{resize:vertical}
   .edit-actions{grid-template-columns:1fr}
 }
 
+
+/* ===== DocuKeep v11 polished home ===== */
+body{
+  background:#edf2ef;
+}
+
+.app{
+  box-shadow:0 0 0 1px rgba(20,55,45,.04);
+}
+
+.app-header{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  text-align:left;
+  padding:24px 18px 22px;
+  background:linear-gradient(135deg,#173f35 0%,#245846 100%);
+}
+
+.app-header h1{
+  font-size:30px;
+  line-height:1.05;
+  letter-spacing:-.02em;
+}
+
+.app-header p{
+  margin-top:5px;
+  font-size:14px;
+}
+
+.header-mark{
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff;
+  font-size:22px;
+  font-weight:800;
+  box-shadow:0 8px 20px rgba(0,0,0,.12);
+}
+
+main{
+  padding:20px 16px 24px;
+}
+
+.card{
+  border-radius:20px;
+  border:1px solid #dde8e2;
+  box-shadow:0 7px 22px rgba(24,63,53,.055);
+}
+
+.home-welcome{
+  margin-bottom:16px;
+}
+
+.home-welcome h2{
+  font-size:25px;
+  line-height:1.2;
+  margin:0 0 7px;
+  letter-spacing:-.025em;
+}
+
+.home-welcome p{
+  margin:0;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.home-add{
+  width:100%;
+  min-height:62px;
+  border:0;
+  border-radius:17px;
+  background:var(--green);
+  color:#fff;
+  font-size:18px;
+  font-weight:800;
+  padding:16px 18px;
+  box-shadow:0 10px 24px rgba(23,63,53,.18);
+  margin-bottom:16px;
+}
+
+.home-add:hover{
+  filter:brightness(1.04);
+}
+
+.home-quick-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.home-quick{
+  border:1px solid #dce7e1;
+  border-radius:18px;
+  background:#fff;
+  padding:16px;
+  min-height:112px;
+  text-align:left;
+  box-shadow:0 6px 18px rgba(24,63,53,.045);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+
+.home-quick:active{
+  transform:scale(.985);
+}
+
+.home-quick .quick-icon{
+  width:40px;
+  height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:13px;
+  background:#edf5f1;
+  font-size:21px;
+  margin-bottom:11px;
+}
+
+.home-quick strong{
+  display:block;
+  font-size:16px;
+  margin-bottom:4px;
+}
+
+.home-quick .quick-meta{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.35;
+}
+
+.home-section-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:4px 1px 10px;
+}
+
+.home-section-title h3{
+  margin:0;
+  font-size:17px;
+}
+
+.home-section-title button{
+  border:0;
+  background:transparent;
+  color:var(--green2);
+  font-weight:700;
+  padding:6px;
+}
+
+.recent-card{
+  padding:8px 12px;
+  margin-bottom:18px;
+}
+
+.recent-doc{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:0;
+  border-bottom:1px solid #edf1ef;
+  background:#fff;
+  text-align:left;
+  padding:11px 4px;
+}
+
+.recent-doc:last-child{
+  border-bottom:0;
+}
+
+.recent-doc .recent-thumb{
+  width:46px;
+  height:56px;
+  flex:0 0 auto;
+  object-fit:cover;
+  border-radius:9px;
+  border:1px solid #dce5e0;
+  background:#f0f4f2;
+}
+
+.recent-doc .recent-icon{
+  width:46px;
+  height:56px;
+  flex:0 0 auto;
+  border-radius:9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#edf4f0;
+  font-size:22px;
+}
+
+.recent-doc .recent-info{
+  flex:1;
+  min-width:0;
+}
+
+.recent-doc .recent-info strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:15px;
+}
+
+.recent-doc .recent-info span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:4px;
+}
+
+.recent-chevron{
+  color:#8b9a93;
+  font-size:19px;
+}
+
+.security-strip{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:13px 14px;
+  border-radius:16px;
+  background:#edf5f1;
+  border:1px solid #d8e7df;
+  margin-bottom:12px;
+}
+
+.security-strip .shield{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  font-size:19px;
+  box-shadow:0 3px 10px rgba(24,63,53,.06);
+}
+
+.security-strip strong{
+  display:block;
+  font-size:14px;
+}
+
+.security-strip span{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-top:2px;
+}
+
+.backup-card{
+  padding:15px;
+}
+
+.backup-card details{
+  border:0;
+}
+
+.backup-card summary{
+  cursor:pointer;
+  font-weight:750;
+  color:var(--ink);
+  list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.backup-card summary::-webkit-details-marker{
+  display:none;
+}
+
+.backup-card summary::after{
+  content:'›';
+  font-size:24px;
+  color:#82928a;
+  transform:rotate(90deg);
+}
+
+.backup-card details[open] summary::after{
+  transform:rotate(-90deg);
+}
+
+.backup-content{
+  padding-top:12px;
+}
+
+.backup-content .small{
+  line-height:1.45;
+}
+
+nav{
+  box-shadow:0 3px 14px rgba(18,55,44,.05);
+}
+
+nav button{
+  border-radius:13px;
+}
+
+@media(max-width:700px){
+  .app-header{
+    justify-content:flex-start;
+  }
+
+  .home-welcome h2{
+    font-size:23px;
+  }
+
+  .home-quick-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:390px){
+  .home-quick-grid{
+    grid-template-columns:1fr 1fr;
+    gap:9px;
+  }
+
+  .home-quick{
+    padding:13px;
+    min-height:104px;
+  }
+}
+
 footer{
   text-align:center;
   padding:22px 16px 34px;
@@ -370,15 +707,18 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 <body>
 <div class="app">
 
-<header>
-  <h1>🔐 DocuKeep</h1>
-  <p>Your important documents. Safe and easy to find.</p>
+<header class="app-header">
+  <div class="header-mark">D</div>
+  <div>
+    <h1>DocuKeep</h1>
+    <p>Your important documents, safe and easy to find.</p>
+  </div>
 </header>
 
 <div id="setupShell">
   <main>
     <section class="card lockbox">
-      <h2>Create Your DocuKeep PIN</h2>
+      <h2>Protect Your DocuKeep</h2>
       <p class="small">
         Choose a 4–8 digit PIN. DocuKeep will encrypt your saved document data
         before storing it on this device.
@@ -411,7 +751,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   <main>
     <section class="card lockbox">
       <h2>DocuKeep is Locked</h2>
-      <p class="small">Enter your PIN to open your documents.</p>
+      <p class="small">Enter your PIN to securely open your documents.</p>
 
       <label for="unlockPin">PIN</label>
       <input id="unlockPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter PIN">
@@ -441,63 +781,90 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 <main>
 
 <section id="home" class="view active">
-  <div class="card hero">
-    <h2>Keep a digital copy before you need it.</h2>
+
+  <div class="home-welcome">
+    <h2>Your papers, right when you need them.</h2>
     <p>
-      Photograph important papers, receipts, insurance cards, titles,
-      warranties and more — then find them quickly later.
+      Save a secure digital copy of important documents and find it quickly later.
     </p>
   </div>
 
-  <div class="grid">
-    <button class="action" data-go="add">
-      <span class="ico">➕</span>
-      <strong>Add Document</strong>
-      <span class="small">Front, back, or multiple pages.</span>
-    </button>
+  <button class="home-add no-print" type="button" data-go="add">
+    ＋ Add Document
+  </button>
 
-    <button class="action" data-go="search">
-      <span class="ico">🔎</span>
-      <strong>Find Document</strong>
-      <span class="small">Search by name, category, or note.</span>
-    </button>
-
-    <button class="action" data-go="docs">
-      <span class="ico">📁</span>
+  <div class="home-quick-grid no-print">
+    <button class="home-quick" type="button" data-go="docs">
+      <span class="quick-icon">📁</span>
       <strong>My Documents</strong>
-      <span class="small">Browse your saved papers.</span>
+      <span id="homeDocCount" class="quick-meta">Browse saved papers</span>
     </button>
 
-    <button class="action" data-go="vault">
-      <span class="ico">🔒</span>
+    <button class="home-quick" type="button" data-go="search">
+      <span class="quick-icon">🔎</span>
+      <strong>Find</strong>
+      <span class="quick-meta">Search by name, category, or note</span>
+    </button>
+
+    <button class="home-quick" type="button" data-go="vault">
+      <span class="quick-icon">🔒</span>
       <strong>Locked Vault</strong>
-      <span class="small">Keep sensitive papers separate.</span>
+      <span id="homeVaultCount" class="quick-meta">Sensitive documents</span>
+    </button>
+
+    <button class="home-quick" type="button" data-go="trash">
+      <span class="quick-icon">🗑️</span>
+      <strong>Trash</strong>
+      <span id="homeTrashCount" class="quick-meta">Recently removed</span>
     </button>
   </div>
 
-  <div class="card">
-    <strong>Security & Backup</strong>
-    <p class="small">
-      Your saved document records are encrypted before being stored on this device.
-      DocuKeep locks automatically after inactivity and when the app goes into the background.
-    </p>
-
-    <div class="edit-actions no-print">
-      <button id="exportBackupBtn" type="button" class="secondary">
-        ⬇️ Save Encrypted Backup
-      </button>
-
-      <label class="secondary"
-             style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
-        ⬆️ Restore Backup
-        <input id="restoreBackupInput" type="file" accept=".docukeep,application/octet-stream,application/json,.json"
-               style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
-      </label>
-    </div>
-
-    <div id="backupStatus" class="status"></div>
-    <div id="storageStatus" class="small"></div>
+  <div class="home-section-title">
+    <h3>Recent Documents</h3>
+    <button type="button" data-go="docs">View all</button>
   </div>
+
+  <div id="recentDocuments" class="card recent-card">
+    <div class="empty">No documents saved yet.</div>
+  </div>
+
+  <div class="security-strip">
+    <div class="shield">🔐</div>
+    <div>
+      <strong id="homeSecurityTitle">Vault protected</strong>
+      <span id="homeSecurityText">Encrypted storage • automatic locking</span>
+    </div>
+  </div>
+
+  <div class="card backup-card">
+    <details>
+      <summary>Backup & Protection</summary>
+
+      <div class="backup-content">
+        <p class="small">
+          Save an encrypted backup for extra protection, or restore a backup you saved earlier.
+        </p>
+
+        <div class="edit-actions no-print">
+          <button id="exportBackupBtn" type="button" class="secondary">
+            ⬇️ Save Encrypted Backup
+          </button>
+
+          <label class="secondary"
+                 style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+            ⬆️ Restore Backup
+            <input id="restoreBackupInput" type="file"
+                   accept=".docukeep,application/octet-stream,application/json,.json"
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
+          </label>
+        </div>
+
+        <div id="backupStatus" class="status"></div>
+        <div id="storageStatus" class="small"></div>
+      </div>
+    </details>
+  </div>
+
 </section>
 
 <section id="add" class="view">
@@ -1471,6 +1838,7 @@ function showView(name){
     b.classList.toggle('active',b.dataset.view===name);
   });
 
+  if(name==='home') renderHome();
   if(name==='docs') renderDocs();
   if(name==='search') renderSearch();
   if(name==='vault') renderVault();
@@ -2027,6 +2395,108 @@ async function rotatePageData(dataUrl){
     img.onerror = reject;
     img.src = dataUrl;
   });
+}
+
+
+function renderHome(){
+  const regularDocs = documents
+    .filter(d=>!d.secure && !d.trashedAt);
+
+  const vaultDocs = documents
+    .filter(d=>d.secure && !d.trashedAt);
+
+  const trashDocs = documents
+    .filter(d=>d.trashedAt);
+
+  const docCount = document.getElementById('homeDocCount');
+  const vaultCount = document.getElementById('homeVaultCount');
+  const trashCount = document.getElementById('homeTrashCount');
+
+  if(docCount){
+    docCount.textContent =
+      regularDocs.length === 1
+        ? '1 saved document'
+        : `${regularDocs.length} saved documents`;
+  }
+
+  if(vaultCount){
+    vaultCount.textContent =
+      vaultDocs.length === 1
+        ? '1 protected document'
+        : `${vaultDocs.length} protected documents`;
+  }
+
+  if(trashCount){
+    trashCount.textContent =
+      trashDocs.length === 1
+        ? '1 item in Trash'
+        : `${trashDocs.length} items in Trash`;
+  }
+
+  const recentBox = document.getElementById('recentDocuments');
+
+  if(recentBox){
+    recentBox.innerHTML = '';
+
+    const recent = documents
+      .filter(d=>!d.trashedAt)
+      .sort((a,b)=>
+        (b.updatedAt || b.createdAt || b.id || 0) -
+        (a.updatedAt || a.createdAt || a.id || 0)
+      )
+      .slice(0,3);
+
+    if(!recent.length){
+      recentBox.innerHTML =
+        '<div class="empty">No documents saved yet. Tap “Add Document” to save your first one.</div>';
+    }else{
+      recent.forEach(doc=>{
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'recent-doc';
+
+        btn.innerHTML = `
+          ${doc.thumbnail
+            ? `<img class="recent-thumb" src="${doc.thumbnail}" alt="">`
+            : `<span class="recent-icon">${doc.secure ? '🔒' : '📄'}</span>`
+          }
+
+          <span class="recent-info">
+            <strong>${esc(doc.name)}</strong>
+            <span>${esc(doc.category)} • ${doc.pages.length} page${doc.pages.length===1?'':'s'}${doc.secure?' • Vault':''}</span>
+          </span>
+
+          <span class="recent-chevron">›</span>
+        `;
+
+        btn.addEventListener('click',()=>{
+          openDoc(
+            doc.id,
+            doc.secure ? 'vault' : 'docs'
+          );
+        });
+
+        recentBox.appendChild(btn);
+      });
+    }
+  }
+
+  const securityTitle = document.getElementById('homeSecurityTitle');
+  const securityText = document.getElementById('homeSecurityText');
+
+  if(securityTitle){
+    securityTitle.textContent =
+      corruptedRecordCount > 0
+        ? 'Vault needs attention'
+        : 'Vault protected';
+  }
+
+  if(securityText){
+    securityText.textContent =
+      corruptedRecordCount > 0
+        ? `${corruptedRecordCount} encrypted record${corruptedRecordCount===1?'':'s'} could not be opened`
+        : 'Encrypted storage • automatic locking • backup ready';
+  }
 }
 
 function renderDocs(){
