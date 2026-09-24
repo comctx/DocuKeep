@@ -3,92 +3,261 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#173F35">
+<meta name="theme-color" content="#173f35">
 <title>DocuKeep</title>
 <style>
 :root{
-  --bg:#eef3f0;--panel:#fff;--ink:#163028;--muted:#6b7c75;
-  --green:#173f35;--green2:#25604e;--soft:#e7f0eb;--line:#d9e4de;
-  --danger:#9b2f2f;--warn:#fff6d8;
+  --bg:#eef3f0; --panel:#ffffff; --ink:#173028; --muted:#6b7d74;
+  --green:#173f35; --green2:#2b6754; --soft:#e7f1eb; --line:#d8e4dd;
+  --danger:#9b3030; --warn:#fff6d8;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+body{
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:var(--bg);
+  color:var(--ink);
+}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
-.app{max-width:920px;margin:0 auto;min-height:100vh;background:#fff}
-header{background:var(--green);color:#fff;padding:20px 18px;text-align:center}
+.app{
+  max-width:920px;
+  margin:0 auto;
+  min-height:100vh;
+  background:#fff;
+}
+header{
+  background:var(--green);
+  color:#fff;
+  padding:20px 18px;
+  text-align:center;
+}
 header h1{margin:0;font-size:30px}
 header p{margin:5px 0 0;color:#dcebe4}
 nav{
-  display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:10px;
-  border-bottom:1px solid var(--line);background:#fafcfb;position:sticky;top:0;z-index:10
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:7px;
+  padding:10px;
+  border-bottom:1px solid var(--line);
+  background:#fafcfb;
+  position:sticky;
+  top:0;
+  z-index:10;
 }
 nav button{
-  border:1px solid var(--line);background:#fff;border-radius:11px;
-  padding:10px 6px;min-height:46px;color:var(--ink)
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:11px;
+  padding:10px 6px;
+  min-height:46px;
+  color:var(--ink);
 }
-nav button.active{background:var(--soft);border-color:var(--green2);font-weight:700}
+nav button.active{
+  background:var(--soft);
+  border-color:var(--green2);
+  font-weight:700;
+}
 main{padding:16px}
 .view{display:none}
 .view.active{display:block}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:14px;
+}
 .hero{background:linear-gradient(135deg,#eef6f1,#fff)}
 .hero h2,.card h2,.card h3{margin-top:0}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.action{border:1px solid var(--line);border-radius:16px;padding:16px;background:#fff;text-align:left;min-height:110px}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.action{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:16px;
+  background:#fff;
+  text-align:left;
+  min-height:110px;
+}
 .action .ico{font-size:28px;display:block;margin-bottom:8px}
 .action strong{display:block;font-size:17px}
 .small{font-size:13px;color:var(--muted)}
 .primary{
-  width:100%;border:0;background:var(--green);color:#fff;font-weight:700;
-  border-radius:12px;min-height:48px;padding:12px
+  width:100%;
+  border:0;
+  background:var(--green);
+  color:#fff;
+  font-weight:700;
+  border-radius:12px;
+  min-height:48px;
+  padding:12px;
 }
 .secondary{
-  border:1px solid var(--line);background:#fff;color:var(--ink);
-  border-radius:11px;min-height:44px;padding:9px 12px
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--ink);
+  border-radius:11px;
+  min-height:44px;
+  padding:9px 12px;
 }
-.danger{border:1px solid #e7c5c5;color:var(--danger);background:#fff}
-.formgrid{display:grid;grid-template-columns:1fr 180px;gap:10px}
+.danger{
+  border:1px solid #e7c5c5;
+  color:var(--danger);
+  background:#fff;
+}
+.formgrid{
+  display:grid;
+  grid-template-columns:1fr 180px;
+  gap:10px;
+}
 label{font-weight:600;font-size:14px}
 input,select,textarea{
-  width:100%;border:1px solid #c9d8d0;border-radius:10px;background:#fff;
-  padding:11px 12px;font-size:16px;margin-top:5px
+  width:100%;
+  border:1px solid #c9d8d0;
+  border-radius:10px;
+  background:#fff;
+  padding:11px 12px;
+  font-size:16px;
+  margin-top:5px;
 }
 textarea{resize:vertical}
 .spacer{height:10px}
-.photo-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.fake-file{
-  position:relative;overflow:hidden;border:1px dashed #9db4a8;border-radius:14px;
-  padding:15px;background:#f9fcfa;min-height:100px;text-align:left
+.photo-actions{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
 }
-.fake-file input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+.fake-file{
+  position:relative;
+  overflow:hidden;
+  border:1px dashed #9db4a8;
+  border-radius:14px;
+  padding:15px;
+  background:#f9fcfa;
+  min-height:100px;
+  text-align:left;
+}
+.fake-file input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+  margin:0;
+}
 .fake-file .ico{font-size:27px}
-.pages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
-.page{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fafcfb}
-.page img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#eee}
+.pages{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:12px;
+}
+.page{
+  border:1px solid var(--line);
+  border-radius:13px;
+  overflow:hidden;
+  background:#fafcfb;
+}
+.page img{
+  width:100%;
+  aspect-ratio:4/3;
+  object-fit:cover;
+  display:block;
+  background:#eee;
+}
 .page .meta{padding:8px}
 .page .meta strong{display:block;font-size:13px}
 .page .meta button{margin-top:7px;width:100%}
-.doc{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px;margin:9px 0}
+.doc{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  margin:9px 0;
+}
 .doc .icon{font-size:26px}
 .doc .info{flex:1;min-width:0}
-.doc .info strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc .info strong{
+  display:block;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 .doc .info span{font-size:13px;color:var(--muted)}
-.pill{font-size:12px;background:var(--soft);padding:5px 8px;border-radius:999px}
-.viewer-pages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.viewer-page{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fafafa}
-.viewer-page img{width:100%;display:block;max-height:480px;object-fit:contain;background:#f3f3f3}
-.viewer-page div{padding:8px;text-align:center;font-size:13px}
-.toolbar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
-.empty{border:1px dashed #b9c9c0;border-radius:12px;padding:16px;color:var(--muted);background:#fbfdfc}
-.status{min-height:20px;margin-top:9px;font-size:14px;color:var(--green2)}
-.lockbox{max-width:420px}
-.badge{font-size:12px;background:var(--warn);padding:5px 8px;border-radius:999px}
+.pill{
+  font-size:12px;
+  background:var(--soft);
+  padding:5px 8px;
+  border-radius:999px;
+}
+.viewer-pages{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.viewer-page{
+  border:1px solid var(--line);
+  border-radius:14px;
+  overflow:hidden;
+  background:#fafafa;
+}
+.viewer-page img{
+  width:100%;
+  display:block;
+  max-height:480px;
+  object-fit:contain;
+  background:#f3f3f3;
+}
+.viewer-page div{
+  padding:8px;
+  text-align:center;
+  font-size:13px;
+}
+.toolbar{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin-top:14px;
+}
+.empty{
+  border:1px dashed #b9c9c0;
+  border-radius:12px;
+  padding:16px;
+  color:var(--muted);
+  background:#fbfdfc;
+}
+.status{
+  min-height:20px;
+  margin-top:9px;
+  font-size:14px;
+  color:var(--green2);
+}
+.lockbox{max-width:440px;margin:20px auto}
+.security-note{
+  border:1px solid var(--line);
+  background:#f8fbf9;
+  border-radius:12px;
+  padding:12px;
+  margin-top:12px;
+  font-size:13px;
+  color:var(--muted);
+}
 footer{
-  text-align:center;padding:22px 16px 34px;color:var(--muted);
-  font-size:12px;border-top:1px solid var(--line);background:#fafcfb
+  text-align:center;
+  padding:22px 16px 34px;
+  color:var(--muted);
+  font-size:12px;
+  border-top:1px solid var(--line);
+  background:#fafcfb;
 }
 footer strong{color:var(--ink);letter-spacing:.03em}
+#lockedShell,#appShell{display:none}
+
 @media(max-width:700px){
   nav{grid-template-columns:repeat(2,1fr)}
   .grid,.formgrid,.photo-actions,.pages,.viewer-pages,.toolbar{grid-template-columns:1fr}
@@ -114,12 +283,67 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   <p>Your important documents. Safe and easy to find.</p>
 </header>
 
+<div id="setupShell">
+  <main>
+    <section class="card lockbox">
+      <h2>Create Your DocuKeep PIN</h2>
+      <p class="small">
+        Choose a 4–8 digit PIN. DocuKeep will encrypt your saved document data
+        before storing it on this device.
+      </p>
+
+      <label for="newPin">Create PIN</label>
+      <input id="newPin" type="password" inputmode="numeric" maxlength="8" placeholder="4–8 digits">
+
+      <div class="spacer"></div>
+
+      <label for="confirmPin">Confirm PIN</label>
+      <input id="confirmPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter it again">
+
+      <div class="spacer"></div>
+
+      <button id="createVaultBtn" class="primary" type="button">
+        Create Secure Vault
+      </button>
+
+      <div id="setupStatus" class="status"></div>
+
+      <div class="security-note">
+        Important: if you forget this PIN, this prototype cannot recover your encrypted documents.
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="lockedShell">
+  <main>
+    <section class="card lockbox">
+      <h2>DocuKeep is Locked</h2>
+      <p class="small">Enter your PIN to open your documents.</p>
+
+      <label for="unlockPin">PIN</label>
+      <input id="unlockPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter PIN">
+
+      <div class="spacer"></div>
+
+      <button id="unlockAppBtn" class="primary" type="button">
+        Unlock DocuKeep
+      </button>
+
+      <div id="unlockStatus" class="status"></div>
+    </section>
+  </main>
+</div>
+
+<div id="appShell">
+
 <nav class="no-print">
   <button class="nav active" data-view="home">🏠 Home</button>
   <button class="nav" data-view="add">➕ Add</button>
   <button class="nav" data-view="docs">📁 Documents</button>
   <button class="nav" data-view="search">🔎 Find</button>
   <button class="nav" data-view="vault">🔒 Vault</button>
+  <button id="lockNowBtn" type="button">🔐 Lock</button>
 </nav>
 
 <main>
@@ -127,7 +351,10 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 <section id="home" class="view active">
   <div class="card hero">
     <h2>Keep a digital copy before you need it.</h2>
-    <p>Photograph important papers, receipts, insurance cards, titles, warranties and more — then find them quickly later.</p>
+    <p>
+      Photograph important papers, receipts, insurance cards, titles,
+      warranties and more — then find them quickly later.
+    </p>
   </div>
 
   <div class="grid">
@@ -152,15 +379,26 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     <button class="action" data-go="vault">
       <span class="ico">🔒</span>
       <strong>Locked Vault</strong>
-      <span class="small">PIN-protected prototype area.</span>
+      <span class="small">Keep sensitive papers separate.</span>
     </button>
+  </div>
+
+  <div class="card">
+    <strong>Security</strong>
+    <p class="small">
+      This build uses AES-GCM encryption derived from your PIN and stores encrypted
+      document records in IndexedDB. It automatically locks after 5 minutes of inactivity.
+    </p>
   </div>
 </section>
 
 <section id="add" class="view">
   <div class="card">
     <h2>Add Document</h2>
-    <p class="small">Use your phone camera or choose existing photos. You can add a front, back, or as many pages as needed.</p>
+    <p class="small">
+      Use your phone camera or choose existing photos.
+      Add a front, back, or as many pages as needed.
+    </p>
 
     <div class="photo-actions">
       <label class="fake-file">
@@ -248,29 +486,13 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 </section>
 
 <section id="vault" class="view">
-  <div id="vaultLocked" class="card lockbox">
+  <div class="card">
     <h2>Locked Vault</h2>
     <p class="small">
-      Prototype PIN: <strong>2468</strong>.
-      This demonstrates the flow only; it is not real encryption yet.
+      Documents you mark for the Locked Vault are kept here.
+      The entire DocuKeep database is encrypted while locked.
     </p>
-    <input id="pinInput" inputmode="numeric" maxlength="4" placeholder="Enter 4-digit PIN">
-    <div class="spacer"></div>
-    <button id="unlockBtn" type="button" class="primary">Unlock Vault</button>
-    <div id="vaultStatus" class="status"></div>
-  </div>
-
-  <div id="vaultOpen" style="display:none">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        <div>
-          <h2 style="margin-bottom:4px">Vault Unlocked</h2>
-          <span class="small">Sensitive documents are visible.</span>
-        </div>
-        <button id="lockBtn" class="secondary" type="button">Lock Vault</button>
-      </div>
-      <div id="vaultList"></div>
-    </div>
+    <div id="vaultList"></div>
   </div>
 </section>
 
@@ -301,7 +523,8 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <button id="shareBtn" type="button" class="secondary">↗️ Share</button>
       <button id="pdfBtn" type="button" class="secondary">📄 Save as PDF</button>
 
-      <label class="secondary" style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+      <label class="secondary"
+             style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
         ➕ Add Page
         <input id="viewerAddPage" type="file" accept="image/*" multiple
                style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
@@ -323,94 +546,413 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 </footer>
 
 </div>
+</div>
 
 <script>
+const DB_NAME = 'docukeep_secure_v2';
+const DB_VERSION = 1;
+const CONFIG_STORE = 'config';
+const DOC_STORE = 'docs';
 const MAX_IMAGE_SIDE = 1200;
 const JPEG_QUALITY = 0.72;
+const AUTO_LOCK_MS = 5 * 60 * 1000;
 
-let documents = JSON.parse(localStorage.getItem('docukeep_documents_v1') || '[]');
+let db = null;
+let cryptoKey = null;
+let documents = [];
 let workingPages = [];
 let currentDocId = null;
 let previousView = 'docs';
-let vaultUnlocked = false;
+let inactivityTimer = null;
 
-function saveDB(){
+function bufToArray(buf){
+  return Array.from(new Uint8Array(buf));
+}
+
+function arrayToBuf(arr){
+  return new Uint8Array(arr).buffer;
+}
+
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+    req.onupgradeneeded = () => {
+      const d = req.result;
+
+      if(!d.objectStoreNames.contains(CONFIG_STORE)){
+        d.createObjectStore(CONFIG_STORE,{keyPath:'id'});
+      }
+
+      if(!d.objectStoreNames.contains(DOC_STORE)){
+        d.createObjectStore(DOC_STORE,{keyPath:'id'});
+      }
+    };
+
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGet(store,id){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store,'readonly');
+    const req = tx.objectStore(store).get(id);
+
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGetAll(store){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store,'readonly');
+    const req = tx.objectStore(store).getAll();
+
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbPut(store,obj){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).put(obj);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function idbDelete(store,id){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).delete(id);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deriveKey(pin,saltArray){
+  const pinBytes = new TextEncoder().encode(pin);
+
+  const material = await crypto.subtle.importKey(
+    'raw',
+    pinBytes,
+    {name:'PBKDF2'},
+    false,
+    ['deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name:'PBKDF2',
+      salt:new Uint8Array(saltArray),
+      iterations:250000,
+      hash:'SHA-256'
+    },
+    material,
+    {
+      name:'AES-GCM',
+      length:256
+    },
+    false,
+    ['encrypt','decrypt']
+  );
+}
+
+async function encryptObject(obj,key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(JSON.stringify(obj));
+
+  const cipher = await crypto.subtle.encrypt(
+    {name:'AES-GCM',iv},
+    key,
+    data
+  );
+
+  return {
+    iv:Array.from(iv),
+    cipher:bufToArray(cipher)
+  };
+}
+
+async function decryptObject(record,key){
+  const plain = await crypto.subtle.decrypt(
+    {
+      name:'AES-GCM',
+      iv:new Uint8Array(record.iv)
+    },
+    key,
+    arrayToBuf(record.cipher)
+  );
+
+  return JSON.parse(
+    new TextDecoder().decode(plain)
+  );
+}
+
+async function hasVault(){
+  return !!(await idbGet(CONFIG_STORE,'vault'));
+}
+
+async function createVault(){
+  const pin = document.getElementById('newPin').value.trim();
+  const confirmPin = document.getElementById('confirmPin').value.trim();
+  const status = document.getElementById('setupStatus');
+
+  if(!/^\d{4,8}$/.test(pin)){
+    status.textContent = 'Use a 4–8 digit PIN.';
+    return;
+  }
+
+  if(pin !== confirmPin){
+    status.textContent = 'The two PIN entries do not match.';
+    return;
+  }
+
   try{
-    localStorage.setItem('docukeep_documents_v1', JSON.stringify(documents));
-    return true;
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await deriveKey(pin,salt);
+    const verifier = await encryptObject({ok:'DOCUKEEP_OK'},key);
+
+    await idbPut(CONFIG_STORE,{
+      id:'vault',
+      salt:Array.from(salt),
+      verifier
+    });
+
+    cryptoKey = key;
+    documents = [];
+
+    document.getElementById('newPin').value = '';
+    document.getElementById('confirmPin').value = '';
+    status.textContent = '';
+
+    showUnlockedApp();
   }catch(err){
-    alert('This prototype ran out of browser storage. Try deleting a large document or using smaller photos.');
-    return false;
+    status.textContent = 'Could not create the secure vault in this browser.';
   }
 }
 
+async function unlockApp(){
+  const pin = document.getElementById('unlockPin').value.trim();
+  const status = document.getElementById('unlockStatus');
+
+  const config = await idbGet(CONFIG_STORE,'vault');
+
+  if(!config){
+    showSetup();
+    return;
+  }
+
+  try{
+    const key = await deriveKey(pin,config.salt);
+    const result = await decryptObject(config.verifier,key);
+
+    if(result.ok !== 'DOCUKEEP_OK'){
+      throw new Error('Invalid PIN');
+    }
+
+    cryptoKey = key;
+
+    document.getElementById('unlockPin').value = '';
+    status.textContent = '';
+
+    await loadDocuments();
+    showUnlockedApp();
+
+  }catch(err){
+    status.textContent = 'Incorrect PIN.';
+  }
+}
+
+async function loadDocuments(){
+  documents = [];
+
+  const rows = await idbGetAll(DOC_STORE);
+
+  for(const row of rows){
+    try{
+      const doc = await decryptObject(row,cryptoKey);
+      documents.push(doc);
+    }catch(err){}
+  }
+
+  documents.sort((a,b)=>b.id-a.id);
+}
+
+async function persistDoc(doc){
+  if(!cryptoKey){
+    throw new Error('DocuKeep is locked');
+  }
+
+  const encrypted = await encryptObject(doc,cryptoKey);
+
+  await idbPut(DOC_STORE,{
+    id:doc.id,
+    iv:encrypted.iv,
+    cipher:encrypted.cipher
+  });
+}
+
+function showSetup(){
+  clearTimeout(inactivityTimer);
+
+  document.getElementById('setupShell').style.display = 'block';
+  document.getElementById('lockedShell').style.display = 'none';
+  document.getElementById('appShell').style.display = 'none';
+}
+
+function showLocked(){
+  clearTimeout(inactivityTimer);
+
+  cryptoKey = null;
+  documents = [];
+  workingPages = [];
+  currentDocId = null;
+
+  document.getElementById('setupShell').style.display = 'none';
+  document.getElementById('lockedShell').style.display = 'block';
+  document.getElementById('appShell').style.display = 'none';
+}
+
+function showUnlockedApp(){
+  document.getElementById('setupShell').style.display = 'none';
+  document.getElementById('lockedShell').style.display = 'none';
+  document.getElementById('appShell').style.display = 'block';
+
+  showView('home');
+  resetInactivity();
+}
+
+function resetInactivity(){
+  if(!cryptoKey) return;
+
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showLocked,AUTO_LOCK_MS);
+}
+
+['click','touchstart','keydown'].forEach(evt=>{
+  document.addEventListener(
+    evt,
+    ()=>{ if(cryptoKey) resetInactivity(); },
+    {passive:true}
+  );
+});
+
 function esc(s){
-  return String(s ?? '').replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  return String(s ?? '').replace(/[&<>"']/g,c=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
   }[c]));
 }
 
 function showView(name){
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById(name).classList.add('active');
-
-  document.querySelectorAll('.nav').forEach(b => {
-    b.classList.toggle('active', b.dataset.view === name);
+  document.querySelectorAll('.view').forEach(v=>{
+    v.classList.remove('active');
   });
 
-  if(name === 'docs') renderDocs();
-  if(name === 'search') renderSearch();
-  if(name === 'vault') renderVault();
+  document.getElementById(name).classList.add('active');
 
-  window.scrollTo({top:0, behavior:'smooth'});
+  document.querySelectorAll('.nav').forEach(b=>{
+    b.classList.toggle('active',b.dataset.view===name);
+  });
+
+  if(name==='docs') renderDocs();
+  if(name==='search') renderSearch();
+  if(name==='vault') renderVault();
+
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
-document.querySelectorAll('[data-view]').forEach(b => {
-  b.addEventListener('click', () => showView(b.dataset.view));
+document.querySelectorAll('[data-view]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    showView(b.dataset.view);
+  });
 });
 
-document.querySelectorAll('[data-go]').forEach(b => {
-  b.addEventListener('click', () => showView(b.dataset.go));
+document.querySelectorAll('[data-go]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    showView(b.dataset.go);
+  });
 });
+
+document.getElementById('createVaultBtn').addEventListener('click',createVault);
+document.getElementById('unlockAppBtn').addEventListener('click',unlockApp);
+document.getElementById('lockNowBtn').addEventListener('click',showLocked);
 
 async function fileToCompressedDataURL(file){
-  if(!file.type.startsWith('image/')) throw new Error('Not an image');
+  if(!file.type.startsWith('image/')){
+    throw new Error('Not an image');
+  }
 
   const url = URL.createObjectURL(file);
   const img = new Image();
 
-  await new Promise((resolve,reject) => {
+  await new Promise((resolve,reject)=>{
     img.onload = resolve;
     img.onerror = reject;
     img.src = url;
   });
 
-  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.width,img.height));
+  const scale = Math.min(
+    1,
+    MAX_IMAGE_SIDE / Math.max(img.width,img.height)
+  );
+
   const canvas = document.createElement('canvas');
 
-  canvas.width = Math.max(1, Math.round(img.width * scale));
-  canvas.height = Math.max(1, Math.round(img.height * scale));
+  canvas.width = Math.max(
+    1,
+    Math.round(img.width * scale)
+  );
 
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  canvas.height = Math.max(
+    1,
+    Math.round(img.height * scale)
+  );
+
+  canvas.getContext('2d').drawImage(
+    img,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
 
   URL.revokeObjectURL(url);
 
-  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+  return canvas.toDataURL(
+    'image/jpeg',
+    JPEG_QUALITY
+  );
 }
 
 async function addFiles(fileList){
-  const files = [...fileList].slice(0, 20 - workingPages.length);
+  const files = [...fileList].slice(
+    0,
+    20 - workingPages.length
+  );
 
   if(!files.length) return;
 
-  document.getElementById('pageStatus').textContent = 'Adding pages...';
+  document.getElementById('pageStatus').textContent =
+    'Adding pages...';
 
   for(const file of files){
     try{
       const data = await fileToCompressedDataURL(file);
-      workingPages.push({label:'', data});
-    }catch(e){}
+
+      workingPages.push({
+        label:'',
+        data
+      });
+    }catch(err){}
   }
 
   relabelWorkingPages();
@@ -423,11 +965,11 @@ async function addFiles(fileList){
 function relabelWorkingPages(){
   const total = workingPages.length;
 
-  workingPages.forEach((p,i) => {
+  workingPages.forEach((p,i)=>{
     p.label = `Page ${i+1} of ${total}`;
   });
 
-  if(total === 2){
+  if(total===2){
     workingPages[0].label = 'Front';
     workingPages[1].label = 'Back';
   }
@@ -435,14 +977,16 @@ function relabelWorkingPages(){
 
 function renderWorkingPages(){
   const box = document.getElementById('pagePreview');
+
   box.innerHTML = '';
 
   if(!workingPages.length){
-    box.innerHTML = '<div class="empty">No pages added yet.</div>';
+    box.innerHTML =
+      '<div class="empty">No pages added yet.</div>';
     return;
   }
 
-  workingPages.forEach((p,i) => {
+  workingPages.forEach((p,i)=>{
     const d = document.createElement('div');
     d.className = 'page';
 
@@ -450,7 +994,10 @@ function renderWorkingPages(){
       <img src="${p.data}" alt="${esc(p.label)}">
       <div class="meta">
         <strong>${esc(p.label)}</strong>
-        <button type="button" class="secondary removePage" data-i="${i}">
+        <button
+          type="button"
+          class="secondary removePage"
+          data-i="${i}">
           Remove
         </button>
       </div>
@@ -459,80 +1006,102 @@ function renderWorkingPages(){
     box.appendChild(d);
   });
 
-  box.querySelectorAll('.removePage').forEach(b => {
-    b.addEventListener('click', () => {
-      workingPages.splice(Number(b.dataset.i), 1);
+  box.querySelectorAll('.removePage').forEach(b=>{
+    b.addEventListener('click',()=>{
+      workingPages.splice(
+        Number(b.dataset.i),
+        1
+      );
+
       relabelWorkingPages();
       renderWorkingPages();
     });
   });
 }
 
-['cameraInput','photoInput','multiInput'].forEach(id => {
-  document.getElementById(id).addEventListener('change', async e => {
-    await addFiles(e.target.files);
-    e.target.value = '';
-  });
+['cameraInput','photoInput','multiInput'].forEach(id=>{
+  document.getElementById(id).addEventListener(
+    'change',
+    async e=>{
+      await addFiles(e.target.files);
+      e.target.value = '';
+    }
+  );
 });
 
-document.getElementById('docForm').addEventListener('submit', e => {
-  e.preventDefault();
+document.getElementById('docForm').addEventListener(
+  'submit',
+  async e=>{
+    e.preventDefault();
 
-  const name = document.getElementById('docName').value.trim();
+    const name =
+      document.getElementById('docName').value.trim();
 
-  if(!name){
-    document.getElementById('saveStatus').textContent =
-      'Give the document a name.';
-    return;
+    if(!name){
+      document.getElementById('saveStatus').textContent =
+        'Give the document a name.';
+      return;
+    }
+
+    if(!workingPages.length){
+      document.getElementById('saveStatus').textContent =
+        'Add at least one page/photo first.';
+      return;
+    }
+
+    const doc = {
+      id:Date.now(),
+      name,
+      category:document.getElementById('category').value,
+      note:document.getElementById('note').value.trim(),
+      secure:document.getElementById('secure').checked,
+      pages:workingPages.map(p=>({...p}))
+    };
+
+    try{
+      await persistDoc(doc);
+
+      documents.unshift(doc);
+
+      workingPages = [];
+      renderWorkingPages();
+
+      document.getElementById('docName').value = '';
+      document.getElementById('note').value = '';
+      document.getElementById('secure').checked = false;
+
+      document.getElementById('saveStatus').textContent =
+        'Saved securely to DocuKeep ✓';
+
+    }catch(err){
+      document.getElementById('saveStatus').textContent =
+        'Could not save this document.';
+    }
   }
-
-  if(!workingPages.length){
-    document.getElementById('saveStatus').textContent =
-      'Add at least one page/photo first.';
-    return;
-  }
-
-  const doc = {
-    id: Date.now(),
-    name,
-    category: document.getElementById('category').value,
-    note: document.getElementById('note').value.trim(),
-    secure: document.getElementById('secure').checked,
-    pages: workingPages.map(p => ({...p}))
-  };
-
-  documents.unshift(doc);
-
-  if(!saveDB()){
-    documents.shift();
-    return;
-  }
-
-  workingPages = [];
-  renderWorkingPages();
-
-  document.getElementById('docName').value = '';
-  document.getElementById('note').value = '';
-  document.getElementById('secure').checked = false;
-
-  document.getElementById('saveStatus').textContent =
-    'Saved to DocuKeep ✓';
-});
+);
 
 function docRow(doc){
   const div = document.createElement('div');
+
   div.className = 'doc';
 
   div.innerHTML = `
     <div class="icon">📄</div>
+
     <div class="info">
       <strong>${esc(doc.name)}</strong>
       <span>
-        ${esc(doc.category)} •
-        ${doc.pages.length} page${doc.pages.length === 1 ? '' : 's'}
+        ${esc(doc.category)}
+        •
+        ${doc.pages.length}
+        page${doc.pages.length===1?'':'s'}
       </span>
     </div>
-    <button type="button" class="secondary openDoc" data-id="${doc.id}">
+
+    <button
+      type="button"
+      class="secondary openDoc"
+      data-id="${doc.id}">
       View
     </button>
   `;
@@ -540,19 +1109,23 @@ function docRow(doc){
   return div;
 }
 
-function bindOpen(container, from){
-  container.querySelectorAll('.openDoc').forEach(b => {
-    b.addEventListener('click', () => {
-      openDoc(Number(b.dataset.id), from);
+function bindOpen(container,from){
+  container.querySelectorAll('.openDoc').forEach(b=>{
+    b.addEventListener('click',()=>{
+      openDoc(
+        Number(b.dataset.id),
+        from
+      );
     });
   });
 }
 
 function renderDocs(){
   const box = document.getElementById('docList');
+
   box.innerHTML = '';
 
-  const list = documents.filter(d => !d.secure);
+  const list = documents.filter(d=>!d.secure);
 
   if(!list.length){
     box.innerHTML =
@@ -560,20 +1133,33 @@ function renderDocs(){
     return;
   }
 
-  list.forEach(d => box.appendChild(docRow(d)));
-  bindOpen(box, 'docs');
+  list.forEach(d=>{
+    box.appendChild(docRow(d));
+  });
+
+  bindOpen(box,'docs');
 }
 
 function renderSearch(){
-  const q = document.getElementById('searchInput').value.trim().toLowerCase();
-  const box = document.getElementById('searchResults');
+  const q =
+    document.getElementById('searchInput')
+      .value
+      .trim()
+      .toLowerCase();
+
+  const box =
+    document.getElementById('searchResults');
+
   box.innerHTML = '';
 
-  const list = documents.filter(d =>
+  const list = documents.filter(d=>
     !d.secure &&
     (
       !q ||
-      [d.name,d.category,d.note].join(' ').toLowerCase().includes(q)
+      [d.name,d.category,d.note]
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
     )
   );
 
@@ -583,25 +1169,24 @@ function renderSearch(){
     return;
   }
 
-  list.forEach(d => box.appendChild(docRow(d)));
-  bindOpen(box, 'search');
+  list.forEach(d=>{
+    box.appendChild(docRow(d));
+  });
+
+  bindOpen(box,'search');
 }
 
-document.getElementById('searchInput').addEventListener('input', renderSearch);
+document.getElementById('searchInput')
+  .addEventListener('input',renderSearch);
 
 function renderVault(){
-  document.getElementById('vaultLocked').style.display =
-    vaultUnlocked ? 'none' : 'block';
+  const box =
+    document.getElementById('vaultList');
 
-  document.getElementById('vaultOpen').style.display =
-    vaultUnlocked ? 'block' : 'none';
-
-  if(!vaultUnlocked) return;
-
-  const box = document.getElementById('vaultList');
   box.innerHTML = '';
 
-  const list = documents.filter(d => d.secure);
+  const list =
+    documents.filter(d=>d.secure);
 
   if(!list.length){
     box.innerHTML =
@@ -609,65 +1194,62 @@ function renderVault(){
     return;
   }
 
-  list.forEach(d => box.appendChild(docRow(d)));
-  bindOpen(box, 'vault');
+  list.forEach(d=>{
+    box.appendChild(docRow(d));
+  });
+
+  bindOpen(box,'vault');
 }
 
-document.getElementById('unlockBtn').addEventListener('click', () => {
-  if(document.getElementById('pinInput').value === '2468'){
-    vaultUnlocked = true;
-    document.getElementById('pinInput').value = '';
-    document.getElementById('vaultStatus').textContent = '';
-    renderVault();
-  }else{
-    document.getElementById('vaultStatus').textContent =
-      'Incorrect PIN. Prototype PIN is 2468.';
-  }
-});
-
-document.getElementById('lockBtn').addEventListener('click', () => {
-  vaultUnlocked = false;
-  renderVault();
-});
-
-function openDoc(id, from){
-  const doc = documents.find(d => d.id === id);
+function openDoc(id,from){
+  const doc =
+    documents.find(d=>d.id===id);
 
   if(!doc) return;
-
-  if(doc.secure && !vaultUnlocked){
-    showView('vault');
-    return;
-  }
 
   currentDocId = id;
   previousView = from || 'docs';
 
-  document.getElementById('viewerName').textContent = doc.name;
+  document.getElementById('viewerName').textContent =
+    doc.name;
 
   document.getElementById('viewerMeta').textContent =
-    doc.category + ' • ' +
-    doc.pages.length + ' page' +
-    (doc.pages.length === 1 ? '' : 's');
+    doc.category +
+    ' • ' +
+    doc.pages.length +
+    ' page' +
+    (doc.pages.length===1?'':'s');
 
   document.getElementById('viewerSecurity').textContent =
-    doc.secure ? '🔒 Locked Vault' : 'Regular document';
+    doc.secure
+      ? '🔒 Locked Vault'
+      : 'Encrypted document';
 
   document.getElementById('viewerNote').textContent =
     doc.note || 'No note added.';
 
-  const box = document.getElementById('viewerPages');
+  const box =
+    document.getElementById('viewerPages');
+
   box.innerHTML = '';
 
-  doc.pages.forEach((p,i) => {
-    const d = document.createElement('div');
-    d.className = 'viewer-page';
+  doc.pages.forEach((p,i)=>{
+    const d =
+      document.createElement('div');
+
+    d.className =
+      'viewer-page';
 
     d.innerHTML = `
-      <img src="${p.data}"
-           alt="${esc(p.label || ('Page ' + (i+1)))}">
+      <img
+        src="${p.data}"
+        alt="${esc(p.label || ('Page '+(i+1)))}">
+
       <div>
-        ${esc(p.label || ('Page ' + (i+1) + ' of ' + doc.pages.length))}
+        ${esc(
+          p.label ||
+          ('Page '+(i+1)+' of '+doc.pages.length)
+        )}
       </div>
     `;
 
@@ -675,103 +1257,181 @@ function openDoc(id, from){
   });
 
   document.getElementById('viewerStatus').textContent = '';
+
   showView('viewer');
 }
 
-document.getElementById('viewerBack').addEventListener('click', () => {
-  showView(previousView);
-});
-
-document.getElementById('printBtn').addEventListener('click', () => {
-  window.print();
-});
-
-document.getElementById('pdfBtn').addEventListener('click', () => {
-  document.getElementById('viewerStatus').textContent =
-    'Choose “Save as PDF” in the print window.';
-  setTimeout(() => window.print(), 250);
-});
-
-document.getElementById('shareBtn').addEventListener('click', async () => {
-  const doc = documents.find(d => d.id === currentDocId);
-
-  if(!doc) return;
-
-  const text =
-    `DocuKeep document: ${doc.name} ` +
-    `(${doc.pages.length} page${doc.pages.length === 1 ? '' : 's'})`;
-
-  if(navigator.share){
-    try{
-      await navigator.share({
-        title: doc.name,
-        text
-      });
-
-      document.getElementById('viewerStatus').textContent =
-        'Share menu opened.';
-    }catch(e){
-      document.getElementById('viewerStatus').textContent =
-        'Sharing was cancelled.';
-    }
-  }else{
-    document.getElementById('viewerStatus').textContent =
-      'Sharing is not supported in this browser.';
-  }
-});
-
-document.getElementById('viewerAddPage').addEventListener('change', async e => {
-  const doc = documents.find(d => d.id === currentDocId);
-
-  if(!doc) return;
-
-  const files = [...e.target.files].slice(0, 20 - doc.pages.length);
-
-  for(const file of files){
-    try{
-      doc.pages.push({
-        label:'',
-        data: await fileToCompressedDataURL(file)
-      });
-    }catch(err){}
-  }
-
-  const total = doc.pages.length;
-
-  doc.pages.forEach((p,i) => {
-    p.label =
-      total === 2
-        ? (i === 0 ? 'Front' : 'Back')
-        : `Page ${i+1} of ${total}`;
+document.getElementById('viewerBack')
+  .addEventListener('click',()=>{
+    showView(previousView);
   });
 
-  saveDB();
-  e.target.value = '';
+document.getElementById('printBtn')
+  .addEventListener('click',()=>{
+    window.print();
+  });
 
-  openDoc(currentDocId, previousView);
+document.getElementById('pdfBtn')
+  .addEventListener('click',()=>{
+    document.getElementById('viewerStatus').textContent =
+      'Choose “Save as PDF” in the print window.';
 
-  document.getElementById('viewerStatus').textContent =
-    'Page added.';
-});
+    setTimeout(()=>{
+      window.print();
+    },250);
+  });
 
-document.getElementById('deleteDoc').addEventListener('click', () => {
-  const idx = documents.findIndex(d => d.id === currentDocId);
+document.getElementById('shareBtn')
+  .addEventListener('click',async()=>{
+    const doc =
+      documents.find(d=>d.id===currentDocId);
 
-  if(idx < 0) return;
+    if(!doc) return;
 
-  if(!confirm('Delete this document from DocuKeep?')) return;
+    const text =
+      `DocuKeep document: ${doc.name} ` +
+      `(${doc.pages.length} page` +
+      `${doc.pages.length===1?'':'s'})`;
 
-  documents.splice(idx,1);
-  saveDB();
+    if(navigator.share){
+      try{
+        await navigator.share({
+          title:doc.name,
+          text
+        });
 
-  currentDocId = null;
+        document.getElementById('viewerStatus').textContent =
+          'Share menu opened.';
 
-  showView(previousView === 'vault' ? 'vault' : 'docs');
-});
+      }catch(err){
+        document.getElementById('viewerStatus').textContent =
+          'Sharing was cancelled.';
+      }
+    }else{
+      document.getElementById('viewerStatus').textContent =
+        'Sharing is not supported in this browser.';
+    }
+  });
 
-renderWorkingPages();
-renderDocs();
-renderSearch();
+document.getElementById('viewerAddPage')
+  .addEventListener('change',async e=>{
+    const doc =
+      documents.find(d=>d.id===currentDocId);
+
+    if(!doc) return;
+
+    const files =
+      [...e.target.files].slice(
+        0,
+        20-doc.pages.length
+      );
+
+    for(const file of files){
+      try{
+        doc.pages.push({
+          label:'',
+          data:await fileToCompressedDataURL(file)
+        });
+      }catch(err){}
+    }
+
+    const total =
+      doc.pages.length;
+
+    doc.pages.forEach((p,i)=>{
+      p.label =
+        total===2
+          ? (i===0?'Front':'Back')
+          : `Page ${i+1} of ${total}`;
+    });
+
+    await persistDoc(doc);
+
+    e.target.value = '';
+
+    openDoc(
+      currentDocId,
+      previousView
+    );
+
+    document.getElementById('viewerStatus').textContent =
+      'Page added securely.';
+  });
+
+document.getElementById('deleteDoc')
+  .addEventListener('click',async()=>{
+    const idx =
+      documents.findIndex(
+        d=>d.id===currentDocId
+      );
+
+    if(idx<0) return;
+
+    if(!confirm(
+      'Delete this document from DocuKeep?'
+    )){
+      return;
+    }
+
+    const id =
+      documents[idx].id;
+
+    try{
+      await idbDelete(
+        DOC_STORE,
+        id
+      );
+
+      documents.splice(
+        idx,
+        1
+      );
+
+      currentDocId = null;
+
+      showView(
+        previousView==='vault'
+          ? 'vault'
+          : 'docs'
+      );
+
+    }catch(err){
+      document.getElementById('viewerStatus').textContent =
+        'Could not delete this document.';
+    }
+  });
+
+async function init(){
+  if(
+    !window.crypto ||
+    !crypto.subtle ||
+    !window.indexedDB
+  ){
+    document.getElementById('setupStatus').textContent =
+      'This browser does not support the security features DocuKeep needs.';
+    return;
+  }
+
+  try{
+    db = await openDB();
+
+    if(await hasVault()){
+      document.getElementById('setupShell').style.display = 'none';
+      document.getElementById('lockedShell').style.display = 'block';
+      document.getElementById('appShell').style.display = 'none';
+    }else{
+      showSetup();
+    }
+
+    renderWorkingPages();
+
+  }catch(err){
+    document.getElementById('setupStatus').textContent =
+      'DocuKeep could not open its secure browser storage.';
+  }
+}
+
+init();
 </script>
 
 </body>
