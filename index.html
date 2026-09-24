@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173f35">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DocuKeep">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <title>DocuKeep</title>
 <style>
 :root{
@@ -339,6 +346,82 @@ textarea{resize:vertical}
   .edit-actions{grid-template-columns:1fr}
 }
 
+
+
+/* ===== DocuKeep v12 installable app ===== */
+.launch-splash{
+  position:fixed;
+  inset:0;
+  z-index:20000;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  background:#173f35;
+  color:#fff;
+  transition:opacity .28s ease, visibility .28s ease;
+}
+.launch-splash.hide{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+.launch-splash img{
+  width:104px;
+  height:104px;
+  border-radius:24px;
+  box-shadow:0 14px 36px rgba(0,0,0,.22);
+}
+.launch-splash strong{
+  font-size:30px;
+  letter-spacing:-.03em;
+}
+.launch-splash span{
+  color:#dcebe4;
+  font-size:13px;
+  letter-spacing:.02em;
+}
+.install-card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:1px solid #d8e7df;
+  background:#f5faf7;
+  border-radius:16px;
+  padding:12px 13px;
+  margin:-4px 0 16px;
+}
+.install-card img{
+  width:44px;
+  height:44px;
+  border-radius:11px;
+  flex:0 0 auto;
+}
+.install-card .install-copy{
+  flex:1;
+  min-width:0;
+}
+.install-card strong{
+  display:block;
+  font-size:14px;
+}
+.install-card span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:3px;
+  line-height:1.3;
+}
+.install-card button{
+  border:0;
+  border-radius:10px;
+  background:var(--green);
+  color:#fff;
+  font-weight:700;
+  padding:9px 11px;
+  min-height:40px;
+}
 
 /* ===== DocuKeep v11 polished home ===== */
 body{
@@ -705,6 +788,11 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 </style>
 </head>
 <body>
+<div id="launchSplash" class="launch-splash" aria-hidden="true">
+  <img src="./icons/icon-192.png" alt="">
+  <strong>DocuKeep</strong>
+  <span>A DONCO-BAYCITY™ App</span>
+</div>
 <div class="app">
 
 <header class="app-header">
@@ -792,6 +880,15 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   <button class="home-add no-print" type="button" data-go="add">
     ＋ Add Document
   </button>
+
+  <div id="installAppCard" class="install-card no-print" hidden>
+    <img src="./icons/icon-192.png" alt="">
+    <div class="install-copy">
+      <strong>Install DocuKeep</strong>
+      <span id="installAppText">Open DocuKeep from your home screen like an app.</span>
+    </div>
+    <button id="installAppBtn" type="button">Install</button>
+  </div>
 
   <div class="home-quick-grid no-print">
     <button class="home-quick" type="button" data-go="docs">
@@ -2868,6 +2965,339 @@ document.getElementById('editForm').addEventListener('submit',async e=>{
     'Changes saved.';
 });
 
+
+function bytesFromAscii(text){
+  const out = new Uint8Array(text.length);
+  for(let i=0;i<text.length;i++){
+    out[i] = text.charCodeAt(i) & 0xff;
+  }
+  return out;
+}
+
+function concatByteArrays(parts){
+  let total = 0;
+  for(const part of parts) total += part.length;
+
+  const out = new Uint8Array(total);
+  let offset = 0;
+
+  for(const part of parts){
+    out.set(part,offset);
+    offset += part.length;
+  }
+
+  return out;
+}
+
+function dataUrlBytes(dataUrl){
+  const comma = dataUrl.indexOf(',');
+  if(comma < 0) throw new Error('Invalid image data');
+
+  const base64 = dataUrl.slice(comma+1);
+  const binary = atob(base64);
+  const out = new Uint8Array(binary.length);
+
+  for(let i=0;i<binary.length;i++){
+    out[i] = binary.charCodeAt(i);
+  }
+
+  return out;
+}
+
+function jpegDimensions(bytes){
+  if(bytes.length < 4 || bytes[0]!==0xff || bytes[1]!==0xd8){
+    throw new Error('Not a JPEG image');
+  }
+
+  let offset = 2;
+
+  while(offset + 9 < bytes.length){
+    if(bytes[offset] !== 0xff){
+      offset += 1;
+      continue;
+    }
+
+    const marker = bytes[offset+1];
+
+    if(marker===0xd8 || marker===0xd9){
+      offset += 2;
+      continue;
+    }
+
+    if(offset + 3 >= bytes.length) break;
+
+    const length = (bytes[offset+2] << 8) + bytes[offset+3];
+    if(length < 2) break;
+
+    const isSOF =
+      (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf);
+
+    if(isSOF){
+      const height = (bytes[offset+5] << 8) + bytes[offset+6];
+      const width = (bytes[offset+7] << 8) + bytes[offset+8];
+
+      if(!width || !height) throw new Error('Invalid JPEG size');
+      return {width,height};
+    }
+
+    offset += 2 + length;
+  }
+
+  throw new Error('JPEG dimensions not found');
+}
+
+async function ensureJpegDataUrl(dataUrl){
+  if(/^data:image\/jpe?g;base64,/i.test(dataUrl)){
+    return dataUrl;
+  }
+
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+
+    img.onload = ()=>{
+      try{
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0);
+
+        resolve(canvas.toDataURL('image/jpeg',0.9));
+      }catch(err){
+        reject(err);
+      }
+    };
+
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function safePdfFilename(name){
+  const clean = String(name || 'DocuKeep Document')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(0,80);
+
+  return (clean || 'DocuKeep Document') + '.pdf';
+}
+
+function safePdfText(text){
+  return String(text || '')
+    .replace(/[^\x20-\x7e]/g,'?')
+    .replace(/\\/g,'\\\\')
+    .replace(/\(/g,'\\(')
+    .replace(/\)/g,'\\)');
+}
+
+async function createDocumentPdfBlob(doc){
+  if(!doc || !Array.isArray(doc.pages) || !doc.pages.length){
+    throw new Error('No pages to export');
+  }
+
+  const preparedPages = [];
+
+  for(const page of doc.pages){
+    const jpegData = await ensureJpegDataUrl(page.data);
+    const bytes = dataUrlBytes(jpegData);
+    const size = jpegDimensions(bytes);
+    preparedPages.push({bytes,...size});
+  }
+
+  const objectCount = 3 + (preparedPages.length * 3);
+  const infoObject = objectCount;
+  const objects = new Map();
+
+  const kids = [];
+
+  for(let i=0;i<preparedPages.length;i++){
+    kids.push(`${3 + i*3} 0 R`);
+  }
+
+  objects.set(
+    1,
+    [bytesFromAscii(`<< /Type /Catalog /Pages 2 0 R >>`)]
+  );
+
+  objects.set(
+    2,
+    [bytesFromAscii(
+      `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${preparedPages.length} >>`
+    )]
+  );
+
+  preparedPages.forEach((page,i)=>{
+    const pageObj = 3 + i*3;
+    const imageObj = pageObj + 1;
+    const contentObj = pageObj + 2;
+
+    const landscape = page.width > page.height;
+    const pageW = landscape ? 792 : 612;
+    const pageH = landscape ? 612 : 792;
+    const margin = 24;
+
+    const scale = Math.min(
+      (pageW - margin*2) / page.width,
+      (pageH - margin*2) / page.height
+    );
+
+    const drawW = page.width * scale;
+    const drawH = page.height * scale;
+    const x = (pageW - drawW) / 2;
+    const y = (pageH - drawH) / 2;
+
+    const content =
+      `q\n${drawW.toFixed(2)} 0 0 ${drawH.toFixed(2)} ` +
+      `${x.toFixed(2)} ${y.toFixed(2)} cm\n/Im1 Do\nQ\n`;
+
+    const contentBytes = bytesFromAscii(content);
+
+    objects.set(
+      pageObj,
+      [bytesFromAscii(
+        `<< /Type /Page /Parent 2 0 R ` +
+        `/MediaBox [0 0 ${pageW} ${pageH}] ` +
+        `/Resources << /XObject << /Im1 ${imageObj} 0 R >> >> ` +
+        `/Contents ${contentObj} 0 R >>`
+      )]
+    );
+
+    objects.set(
+      imageObj,
+      [
+        bytesFromAscii(
+          `<< /Type /XObject /Subtype /Image ` +
+          `/Width ${page.width} /Height ${page.height} ` +
+          `/ColorSpace /DeviceRGB /BitsPerComponent 8 ` +
+          `/Filter /DCTDecode /Length ${page.bytes.length} >>\nstream\n`
+        ),
+        page.bytes,
+        bytesFromAscii('\nendstream')
+      ]
+    );
+
+    objects.set(
+      contentObj,
+      [
+        bytesFromAscii(`<< /Length ${contentBytes.length} >>\nstream\n`),
+        contentBytes,
+        bytesFromAscii('endstream')
+      ]
+    );
+  });
+
+  const now = new Date();
+  const date =
+    now.getFullYear().toString() +
+    String(now.getMonth()+1).padStart(2,'0') +
+    String(now.getDate()).padStart(2,'0') +
+    String(now.getHours()).padStart(2,'0') +
+    String(now.getMinutes()).padStart(2,'0') +
+    String(now.getSeconds()).padStart(2,'0');
+
+  objects.set(
+    infoObject,
+    [bytesFromAscii(
+      `<< /Title (${safePdfText(doc.name)}) ` +
+      `/Producer (DocuKeep) /CreationDate (D:${date}) >>`
+    )]
+  );
+
+  const chunks = [];
+  const offsets = new Array(objectCount + 1).fill(0);
+
+  const header = bytesFromAscii('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n');
+  chunks.push(header);
+  let totalLength = header.length;
+
+  for(let num=1; num<=objectCount; num++){
+    offsets[num] = totalLength;
+
+    const open = bytesFromAscii(`${num} 0 obj\n`);
+    const close = bytesFromAscii('\nendobj\n');
+
+    chunks.push(open);
+    totalLength += open.length;
+
+    const bodyParts = objects.get(num);
+    if(!bodyParts) throw new Error(`Missing PDF object ${num}`);
+
+    for(const part of bodyParts){
+      chunks.push(part);
+      totalLength += part.length;
+    }
+
+    chunks.push(close);
+    totalLength += close.length;
+  }
+
+  const xrefOffset = totalLength;
+
+  let xref =
+    `xref\n0 ${objectCount+1}\n` +
+    `0000000000 65535 f \n`;
+
+  for(let num=1; num<=objectCount; num++){
+    xref += `${String(offsets[num]).padStart(10,'0')} 00000 n \n`;
+  }
+
+  xref +=
+    `trailer\n<< /Size ${objectCount+1} /Root 1 0 R /Info ${infoObject} 0 R >>\n` +
+    `startxref\n${xrefOffset}\n%%EOF`;
+
+  chunks.push(bytesFromAscii(xref));
+
+  return new Blob(chunks,{type:'application/pdf'});
+}
+
+function downloadBlob(filename,blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+
+async function savePdfForUser(doc,blob){
+  const filename = safePdfFilename(doc.name);
+  const file = new File([blob],filename,{type:'application/pdf'});
+  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if(
+    isiOS &&
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({files:[file]})
+  ){
+    markTrustedExternalInteraction();
+    await navigator.share({
+      title:doc.name,
+      text:'DocuKeep PDF',
+      files:[file]
+    });
+
+    return 'shared';
+  }
+
+  downloadBlob(filename,blob);
+  return 'downloaded';
+}
+
 document.getElementById('viewerBack')
   .addEventListener('click',()=>{
     showView(previousView);
@@ -2879,44 +3309,74 @@ document.getElementById('printBtn')
   });
 
 document.getElementById('pdfBtn')
-  .addEventListener('click',()=>{
-    document.getElementById('viewerStatus').textContent =
-      'Choose “Save as PDF” in the print window.';
+  .addEventListener('click',async()=>{
+    const doc = documents.find(d=>d.id===currentDocId);
+    if(!doc) return;
 
-    setTimeout(()=>{
-      window.print();
-    },250);
+    const status = document.getElementById('viewerStatus');
+
+    try{
+      status.textContent = 'Creating PDF...';
+
+      const blob = await createDocumentPdfBlob(doc);
+      const result = await savePdfForUser(doc,blob);
+
+      status.textContent =
+        result === 'shared'
+          ? 'PDF created. Use the share sheet to Save to Files.'
+          : 'PDF created and downloaded.';
+    }catch(err){
+      if(err && err.name === 'AbortError'){
+        status.textContent = 'PDF save was cancelled.';
+      }else{
+        status.textContent = 'Could not create the PDF.';
+      }
+    }
   });
 
 document.getElementById('shareBtn')
   .addEventListener('click',async()=>{
-    const doc =
-      documents.find(d=>d.id===currentDocId);
-
+    const doc = documents.find(d=>d.id===currentDocId);
     if(!doc) return;
 
-    const text =
-      `DocuKeep document: ${doc.name} ` +
-      `(${doc.pages.length} page` +
-      `${doc.pages.length===1?'':'s'})`;
+    const status = document.getElementById('viewerStatus');
 
-    if(navigator.share){
-      try{
+    try{
+      status.textContent = 'Preparing PDF to share...';
+
+      const blob = await createDocumentPdfBlob(doc);
+      const file = new File(
+        [blob],
+        safePdfFilename(doc.name),
+        {type:'application/pdf'}
+      );
+
+      if(
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({files:[file]})
+      ){
+        markTrustedExternalInteraction();
+
         await navigator.share({
           title:doc.name,
-          text
+          text:'Shared from DocuKeep',
+          files:[file]
         });
 
-        document.getElementById('viewerStatus').textContent =
-          'Share menu opened.';
-
-      }catch(err){
-        document.getElementById('viewerStatus').textContent =
-          'Sharing was cancelled.';
+        status.textContent = 'PDF shared.';
+      }else{
+        downloadBlob(file.name,blob);
+        status.textContent =
+          'File sharing is not available here, so the PDF was downloaded instead.';
       }
-    }else{
-      document.getElementById('viewerStatus').textContent =
-        'Sharing is not supported in this browser.';
+
+    }catch(err){
+      if(err && err.name === 'AbortError'){
+        status.textContent = 'Sharing was cancelled.';
+      }else{
+        status.textContent = 'Could not prepare the PDF for sharing.';
+      }
     }
   });
 
@@ -2999,6 +3459,104 @@ document.getElementById('deleteDoc')
         'Could not move this document to Trash.';
     }
   });
+
+
+let deferredInstallPrompt = null;
+
+function isStandaloneApp(){
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function updateInstallCard(){
+  const card = document.getElementById('installAppCard');
+  const button = document.getElementById('installAppBtn');
+  const text = document.getElementById('installAppText');
+
+  if(!card || !button || !text) return;
+
+  if(isStandaloneApp()){
+    card.hidden = true;
+    return;
+  }
+
+  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if(deferredInstallPrompt){
+    text.textContent =
+      'Open DocuKeep from your home screen like an app.';
+    button.textContent = 'Install';
+    card.hidden = false;
+    return;
+  }
+
+  if(isiOS){
+    text.textContent =
+      'On iPhone, add DocuKeep to your Home Screen from Safari.';
+    button.textContent = 'How';
+    card.hidden = false;
+    return;
+  }
+
+  card.hidden = true;
+}
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallCard();
+});
+
+window.addEventListener('appinstalled',()=>{
+  deferredInstallPrompt = null;
+  updateInstallCard();
+});
+
+document.getElementById('installAppBtn')?.addEventListener('click',async()=>{
+  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+
+    try{
+      await deferredInstallPrompt.userChoice;
+    }catch(err){}
+
+    deferredInstallPrompt = null;
+    updateInstallCard();
+    return;
+  }
+
+  if(isiOS){
+    alert(
+      'To install DocuKeep on iPhone: open this page in Safari, tap the Share button, then choose “Add to Home Screen.”'
+    );
+  }
+});
+
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{});
+  });
+}
+
+window.addEventListener('load',()=>{
+  const splash = document.getElementById('launchSplash');
+
+  setTimeout(()=>{
+    if(splash){
+      splash.classList.add('hide');
+
+      setTimeout(()=>{
+        splash.remove();
+      },350);
+    }
+  },500);
+
+  updateInstallCard();
+});
 
 async function init(){
   if(
