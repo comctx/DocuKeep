@@ -19,8 +19,14 @@ button{cursor:pointer}
 header{background:var(--green);color:#fff;padding:20px 18px;text-align:center}
 header h1{margin:0;font-size:30px}
 header p{margin:5px 0 0;color:#dcebe4}
-nav{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:10px;border-bottom:1px solid var(--line);background:#fafcfb;position:sticky;top:0;z-index:10}
-nav button{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 6px;min-height:46px;color:var(--ink)}
+nav{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:10px;
+  border-bottom:1px solid var(--line);background:#fafcfb;position:sticky;top:0;z-index:10
+}
+nav button{
+  border:1px solid var(--line);background:#fff;border-radius:11px;
+  padding:10px 6px;min-height:46px;color:var(--ink)
+}
 nav button.active{background:var(--soft);border-color:var(--green2);font-weight:700}
 main{padding:16px}
 .view{display:none}
@@ -33,16 +39,28 @@ main{padding:16px}
 .action .ico{font-size:28px;display:block;margin-bottom:8px}
 .action strong{display:block;font-size:17px}
 .small{font-size:13px;color:var(--muted)}
-.primary{width:100%;border:0;background:var(--green);color:#fff;font-weight:700;border-radius:12px;min-height:48px;padding:12px}
-.secondary{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;min-height:44px;padding:9px 12px}
+.primary{
+  width:100%;border:0;background:var(--green);color:#fff;font-weight:700;
+  border-radius:12px;min-height:48px;padding:12px
+}
+.secondary{
+  border:1px solid var(--line);background:#fff;color:var(--ink);
+  border-radius:11px;min-height:44px;padding:9px 12px
+}
 .danger{border:1px solid #e7c5c5;color:var(--danger);background:#fff}
 .formgrid{display:grid;grid-template-columns:1fr 180px;gap:10px}
 label{font-weight:600;font-size:14px}
-input,select,textarea{width:100%;border:1px solid #c9d8d0;border-radius:10px;background:#fff;padding:11px 12px;font-size:16px;margin-top:5px}
+input,select,textarea{
+  width:100%;border:1px solid #c9d8d0;border-radius:10px;background:#fff;
+  padding:11px 12px;font-size:16px;margin-top:5px
+}
 textarea{resize:vertical}
 .spacer{height:10px}
 .photo-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.fake-file{position:relative;overflow:hidden;border:1px dashed #9db4a8;border-radius:14px;padding:15px;background:#f9fcfa;min-height:100px;text-align:left}
+.fake-file{
+  position:relative;overflow:hidden;border:1px dashed #9db4a8;border-radius:14px;
+  padding:15px;background:#f9fcfa;min-height:100px;text-align:left
+}
 .fake-file input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
 .fake-file .ico{font-size:27px}
 .pages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
@@ -66,13 +84,18 @@ textarea{resize:vertical}
 .status{min-height:20px;margin-top:9px;font-size:14px;color:var(--green2)}
 .lockbox{max-width:420px}
 .badge{font-size:12px;background:var(--warn);padding:5px 8px;border-radius:999px}
+footer{
+  text-align:center;padding:22px 16px 34px;color:var(--muted);
+  font-size:12px;border-top:1px solid var(--line);background:#fafcfb
+}
+footer strong{color:var(--ink);letter-spacing:.03em}
 @media(max-width:700px){
   nav{grid-template-columns:repeat(2,1fr)}
   .grid,.formgrid,.photo-actions,.pages,.viewer-pages,.toolbar{grid-template-columns:1fr}
 }
 @media print{
   body{background:#fff}
-  header,nav,.no-print,#viewerBack,#viewerToolbar,#deleteDoc{display:none!important}
+  header,nav,.no-print,#viewerBack,#viewerToolbar,#deleteDoc,footer{display:none!important}
   .app{max-width:none}
   main{padding:0}
   .view{display:none!important}
@@ -85,6 +108,7 @@ textarea{resize:vertical}
 </head>
 <body>
 <div class="app">
+
 <header>
   <h1>🔐 DocuKeep</h1>
   <p>Your important documents. Safe and easy to find.</p>
@@ -99,16 +123,37 @@ textarea{resize:vertical}
 </nav>
 
 <main>
+
 <section id="home" class="view active">
   <div class="card hero">
     <h2>Keep a digital copy before you need it.</h2>
     <p>Photograph important papers, receipts, insurance cards, titles, warranties and more — then find them quickly later.</p>
   </div>
+
   <div class="grid">
-    <button class="action" data-go="add"><span class="ico">➕</span><strong>Add Document</strong><span class="small">Front, back, or multiple pages.</span></button>
-    <button class="action" data-go="search"><span class="ico">🔎</span><strong>Find Document</strong><span class="small">Search by name, category, or note.</span></button>
-    <button class="action" data-go="docs"><span class="ico">📁</span><strong>My Documents</strong><span class="small">Browse your saved papers.</span></button>
-    <button class="action" data-go="vault"><span class="ico">🔒</span><strong>Locked Vault</strong><span class="small">PIN-protected prototype area.</span></button>
+    <button class="action" data-go="add">
+      <span class="ico">➕</span>
+      <strong>Add Document</strong>
+      <span class="small">Front, back, or multiple pages.</span>
+    </button>
+
+    <button class="action" data-go="search">
+      <span class="ico">🔎</span>
+      <strong>Find Document</strong>
+      <span class="small">Search by name, category, or note.</span>
+    </button>
+
+    <button class="action" data-go="docs">
+      <span class="ico">📁</span>
+      <strong>My Documents</strong>
+      <span class="small">Browse your saved papers.</span>
+    </button>
+
+    <button class="action" data-go="vault">
+      <span class="ico">🔒</span>
+      <strong>Locked Vault</strong>
+      <span class="small">PIN-protected prototype area.</span>
+    </button>
   </div>
 </section>
 
@@ -119,15 +164,23 @@ textarea{resize:vertical}
 
     <div class="photo-actions">
       <label class="fake-file">
-        <span class="ico">📷</span><strong>Take Photo</strong><br><span class="small">Camera on supported phones</span>
+        <span class="ico">📷</span>
+        <strong>Take Photo</strong><br>
+        <span class="small">Camera on supported phones</span>
         <input id="cameraInput" type="file" accept="image/*" capture="environment">
       </label>
+
       <label class="fake-file">
-        <span class="ico">🖼️</span><strong>Choose Photo</strong><br><span class="small">Pick one existing image</span>
+        <span class="ico">🖼️</span>
+        <strong>Choose Photo</strong><br>
+        <span class="small">Pick one existing image</span>
         <input id="photoInput" type="file" accept="image/*">
       </label>
+
       <label class="fake-file">
-        <span class="ico">📚</span><strong>Choose Several</strong><br><span class="small">Add multiple pages at once</span>
+        <span class="ico">📚</span>
+        <strong>Choose Several</strong><br>
+        <span class="small">Add multiple pages at once</span>
         <input id="multiInput" type="file" accept="image/*" multiple>
       </label>
     </div>
@@ -142,24 +195,37 @@ textarea{resize:vertical}
         <label for="docName">Document name</label>
         <input id="docName" required maxlength="70" placeholder="Example: Auto insurance card">
       </div>
+
       <div>
         <label for="category">Category</label>
         <select id="category">
-          <option>Receipts</option><option>Insurance</option><option>Vehicle</option>
-          <option>Home</option><option>Medical</option><option>Legal</option>
-          <option>Taxes</option><option>Warranty</option><option>Other</option>
+          <option>Receipts</option>
+          <option>Insurance</option>
+          <option>Vehicle</option>
+          <option>Home</option>
+          <option>Medical</option>
+          <option>Legal</option>
+          <option>Taxes</option>
+          <option>Warranty</option>
+          <option>Other</option>
         </select>
       </div>
     </div>
+
     <div class="spacer"></div>
+
     <label for="note">Optional note</label>
     <textarea id="note" rows="3" maxlength="220" placeholder="Anything helpful to remember"></textarea>
+
     <div class="spacer"></div>
+
     <label style="display:flex;gap:10px;align-items:center;font-weight:600">
       <input id="secure" type="checkbox" style="width:22px;height:22px;margin:0">
       Put this document in the Locked Vault
     </label>
+
     <div class="spacer"></div>
+
     <button class="primary">Save to DocuKeep</button>
     <div id="saveStatus" class="status"></div>
   </form>
@@ -184,16 +250,23 @@ textarea{resize:vertical}
 <section id="vault" class="view">
   <div id="vaultLocked" class="card lockbox">
     <h2>Locked Vault</h2>
-    <p class="small">Prototype PIN: <strong>2468</strong>. This demonstrates the flow only; it is not real encryption yet.</p>
+    <p class="small">
+      Prototype PIN: <strong>2468</strong>.
+      This demonstrates the flow only; it is not real encryption yet.
+    </p>
     <input id="pinInput" inputmode="numeric" maxlength="4" placeholder="Enter 4-digit PIN">
     <div class="spacer"></div>
     <button id="unlockBtn" type="button" class="primary">Unlock Vault</button>
     <div id="vaultStatus" class="status"></div>
   </div>
+
   <div id="vaultOpen" style="display:none">
     <div class="card">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        <div><h2 style="margin-bottom:4px">Vault Unlocked</h2><span class="small">Sensitive documents are visible.</span></div>
+        <div>
+          <h2 style="margin-bottom:4px">Vault Unlocked</h2>
+          <span class="small">Sensitive documents are visible.</span>
+        </div>
         <button id="lockBtn" class="secondary" type="button">Lock Vault</button>
       </div>
       <div id="vaultList"></div>
@@ -203,7 +276,9 @@ textarea{resize:vertical}
 
 <section id="viewer" class="view">
   <button id="viewerBack" type="button" class="secondary no-print">← Back</button>
+
   <div class="spacer"></div>
+
   <div class="card">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div>
@@ -212,9 +287,12 @@ textarea{resize:vertical}
       </div>
       <div id="viewerSecurity" class="pill"></div>
     </div>
+
     <div class="spacer"></div>
     <div id="viewerPages" class="viewer-pages"></div>
+
     <div class="spacer"></div>
+
     <strong>Note</strong>
     <div id="viewerNote" class="small" style="margin-top:5px"></div>
 
@@ -222,16 +300,28 @@ textarea{resize:vertical}
       <button id="printBtn" type="button" class="secondary">🖨️ Print</button>
       <button id="shareBtn" type="button" class="secondary">↗️ Share</button>
       <button id="pdfBtn" type="button" class="secondary">📄 Save as PDF</button>
+
       <label class="secondary" style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
         ➕ Add Page
-        <input id="viewerAddPage" type="file" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
+        <input id="viewerAddPage" type="file" accept="image/*" multiple
+               style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
       </label>
     </div>
+
     <div id="viewerStatus" class="status no-print"></div>
-    <button id="deleteDoc" type="button" class="secondary danger no-print">Delete Document</button>
+
+    <button id="deleteDoc" type="button" class="secondary danger no-print">
+      Delete Document
+    </button>
   </div>
 </section>
+
 </main>
+
+<footer>
+  <strong>A DONCO-BAYCITY™ App</strong>
+</footer>
+
 </div>
 
 <script>
@@ -253,191 +343,436 @@ function saveDB(){
     return false;
   }
 }
+
 function esc(s){
-  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
 }
+
 function showView(name){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(name).classList.add('active');
-  document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
-  if(name==='docs') renderDocs();
-  if(name==='search') renderSearch();
-  if(name==='vault') renderVault();
-  window.scrollTo({top:0,behavior:'smooth'});
+
+  document.querySelectorAll('.nav').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+  });
+
+  if(name === 'docs') renderDocs();
+  if(name === 'search') renderSearch();
+  if(name === 'vault') renderVault();
+
+  window.scrollTo({top:0, behavior:'smooth'});
 }
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
-document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.go)));
+
+document.querySelectorAll('[data-view]').forEach(b => {
+  b.addEventListener('click', () => showView(b.dataset.view));
+});
+
+document.querySelectorAll('[data-go]').forEach(b => {
+  b.addEventListener('click', () => showView(b.dataset.go));
+});
 
 async function fileToCompressedDataURL(file){
   if(!file.type.startsWith('image/')) throw new Error('Not an image');
+
   const url = URL.createObjectURL(file);
   const img = new Image();
-  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
+
+  await new Promise((resolve,reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = url;
+  });
+
   const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.width,img.height));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1,Math.round(img.width*scale));
-  canvas.height = Math.max(1,Math.round(img.height*scale));
-  const ctx=canvas.getContext('2d');
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
   URL.revokeObjectURL(url);
-  return canvas.toDataURL('image/jpeg',JPEG_QUALITY);
+
+  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
 }
 
 async function addFiles(fileList){
-  const files=[...fileList].slice(0,20-workingPages.length);
-  if(!files.length)return;
-  document.getElementById('pageStatus').textContent='Adding pages...';
+  const files = [...fileList].slice(0, 20 - workingPages.length);
+
+  if(!files.length) return;
+
+  document.getElementById('pageStatus').textContent = 'Adding pages...';
+
   for(const file of files){
     try{
-      const data=await fileToCompressedDataURL(file);
-      workingPages.push({label:'',data});
+      const data = await fileToCompressedDataURL(file);
+      workingPages.push({label:'', data});
     }catch(e){}
   }
+
   relabelWorkingPages();
   renderWorkingPages();
-  document.getElementById('pageStatus').textContent=workingPages.length+' page(s) ready.';
+
+  document.getElementById('pageStatus').textContent =
+    workingPages.length + ' page(s) ready.';
 }
+
 function relabelWorkingPages(){
-  const total=workingPages.length;
-  workingPages.forEach((p,i)=>p.label=`Page ${i+1} of ${total}`);
-  if(total===2){
-    workingPages[0].label='Front';
-    workingPages[1].label='Back';
+  const total = workingPages.length;
+
+  workingPages.forEach((p,i) => {
+    p.label = `Page ${i+1} of ${total}`;
+  });
+
+  if(total === 2){
+    workingPages[0].label = 'Front';
+    workingPages[1].label = 'Back';
   }
 }
+
 function renderWorkingPages(){
-  const box=document.getElementById('pagePreview');box.innerHTML='';
-  if(!workingPages.length){box.innerHTML='<div class="empty">No pages added yet.</div>';return}
-  workingPages.forEach((p,i)=>{
-    const d=document.createElement('div');d.className='page';
-    d.innerHTML=`<img src="${p.data}" alt="${esc(p.label)}"><div class="meta"><strong>${esc(p.label)}</strong><button type="button" class="secondary removePage" data-i="${i}">Remove</button></div>`;
+  const box = document.getElementById('pagePreview');
+  box.innerHTML = '';
+
+  if(!workingPages.length){
+    box.innerHTML = '<div class="empty">No pages added yet.</div>';
+    return;
+  }
+
+  workingPages.forEach((p,i) => {
+    const d = document.createElement('div');
+    d.className = 'page';
+
+    d.innerHTML = `
+      <img src="${p.data}" alt="${esc(p.label)}">
+      <div class="meta">
+        <strong>${esc(p.label)}</strong>
+        <button type="button" class="secondary removePage" data-i="${i}">
+          Remove
+        </button>
+      </div>
+    `;
+
     box.appendChild(d);
   });
-  box.querySelectorAll('.removePage').forEach(b=>b.addEventListener('click',()=>{
-    workingPages.splice(Number(b.dataset.i),1);relabelWorkingPages();renderWorkingPages();
-  }));
+
+  box.querySelectorAll('.removePage').forEach(b => {
+    b.addEventListener('click', () => {
+      workingPages.splice(Number(b.dataset.i), 1);
+      relabelWorkingPages();
+      renderWorkingPages();
+    });
+  });
 }
-['cameraInput','photoInput','multiInput'].forEach(id=>{
-  document.getElementById(id).addEventListener('change',async e=>{
-    await addFiles(e.target.files);e.target.value='';
+
+['cameraInput','photoInput','multiInput'].forEach(id => {
+  document.getElementById(id).addEventListener('change', async e => {
+    await addFiles(e.target.files);
+    e.target.value = '';
   });
 });
 
-document.getElementById('docForm').addEventListener('submit',e=>{
+document.getElementById('docForm').addEventListener('submit', e => {
   e.preventDefault();
-  const name=document.getElementById('docName').value.trim();
-  if(!name){document.getElementById('saveStatus').textContent='Give the document a name.';return}
-  if(!workingPages.length){document.getElementById('saveStatus').textContent='Add at least one page/photo first.';return}
-  const doc={
-    id:Date.now(),
+
+  const name = document.getElementById('docName').value.trim();
+
+  if(!name){
+    document.getElementById('saveStatus').textContent =
+      'Give the document a name.';
+    return;
+  }
+
+  if(!workingPages.length){
+    document.getElementById('saveStatus').textContent =
+      'Add at least one page/photo first.';
+    return;
+  }
+
+  const doc = {
+    id: Date.now(),
     name,
-    category:document.getElementById('category').value,
-    note:document.getElementById('note').value.trim(),
-    secure:document.getElementById('secure').checked,
-    pages:workingPages.map(p=>({...p}))
+    category: document.getElementById('category').value,
+    note: document.getElementById('note').value.trim(),
+    secure: document.getElementById('secure').checked,
+    pages: workingPages.map(p => ({...p}))
   };
+
   documents.unshift(doc);
-  if(!saveDB()){documents.shift();return}
-  workingPages=[];
+
+  if(!saveDB()){
+    documents.shift();
+    return;
+  }
+
+  workingPages = [];
   renderWorkingPages();
-  document.getElementById('docName').value='';
-  document.getElementById('note').value='';
-  document.getElementById('secure').checked=false;
-  document.getElementById('saveStatus').textContent='Saved to DocuKeep ✓';
+
+  document.getElementById('docName').value = '';
+  document.getElementById('note').value = '';
+  document.getElementById('secure').checked = false;
+
+  document.getElementById('saveStatus').textContent =
+    'Saved to DocuKeep ✓';
 });
 
 function docRow(doc){
-  const div=document.createElement('div');div.className='doc';
-  div.innerHTML=`<div class="icon">📄</div><div class="info"><strong>${esc(doc.name)}</strong><span>${esc(doc.category)} • ${doc.pages.length} page${doc.pages.length===1?'':'s'}</span></div><button type="button" class="secondary openDoc" data-id="${doc.id}">View</button>`;
+  const div = document.createElement('div');
+  div.className = 'doc';
+
+  div.innerHTML = `
+    <div class="icon">📄</div>
+    <div class="info">
+      <strong>${esc(doc.name)}</strong>
+      <span>
+        ${esc(doc.category)} •
+        ${doc.pages.length} page${doc.pages.length === 1 ? '' : 's'}
+      </span>
+    </div>
+    <button type="button" class="secondary openDoc" data-id="${doc.id}">
+      View
+    </button>
+  `;
+
   return div;
 }
-function bindOpen(container,from){
-  container.querySelectorAll('.openDoc').forEach(b=>b.addEventListener('click',()=>openDoc(Number(b.dataset.id),from)));
+
+function bindOpen(container, from){
+  container.querySelectorAll('.openDoc').forEach(b => {
+    b.addEventListener('click', () => {
+      openDoc(Number(b.dataset.id), from);
+    });
+  });
 }
+
 function renderDocs(){
-  const box=document.getElementById('docList');box.innerHTML='';
-  const list=documents.filter(d=>!d.secure);
-  if(!list.length){box.innerHTML='<div class="empty">No regular documents saved yet.</div>';return}
-  list.forEach(d=>box.appendChild(docRow(d)));bindOpen(box,'docs');
+  const box = document.getElementById('docList');
+  box.innerHTML = '';
+
+  const list = documents.filter(d => !d.secure);
+
+  if(!list.length){
+    box.innerHTML =
+      '<div class="empty">No regular documents saved yet.</div>';
+    return;
+  }
+
+  list.forEach(d => box.appendChild(docRow(d)));
+  bindOpen(box, 'docs');
 }
+
 function renderSearch(){
-  const q=document.getElementById('searchInput').value.trim().toLowerCase();
-  const box=document.getElementById('searchResults');box.innerHTML='';
-  const list=documents.filter(d=>!d.secure && (!q || [d.name,d.category,d.note].join(' ').toLowerCase().includes(q)));
-  if(!list.length){box.innerHTML='<div class="empty">No matching documents found.</div>';return}
-  list.forEach(d=>box.appendChild(docRow(d)));bindOpen(box,'search');
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const box = document.getElementById('searchResults');
+  box.innerHTML = '';
+
+  const list = documents.filter(d =>
+    !d.secure &&
+    (
+      !q ||
+      [d.name,d.category,d.note].join(' ').toLowerCase().includes(q)
+    )
+  );
+
+  if(!list.length){
+    box.innerHTML =
+      '<div class="empty">No matching documents found.</div>';
+    return;
+  }
+
+  list.forEach(d => box.appendChild(docRow(d)));
+  bindOpen(box, 'search');
 }
-document.getElementById('searchInput').addEventListener('input',renderSearch);
+
+document.getElementById('searchInput').addEventListener('input', renderSearch);
 
 function renderVault(){
-  document.getElementById('vaultLocked').style.display=vaultUnlocked?'none':'block';
-  document.getElementById('vaultOpen').style.display=vaultUnlocked?'block':'none';
-  if(!vaultUnlocked)return;
-  const box=document.getElementById('vaultList');box.innerHTML='';
-  const list=documents.filter(d=>d.secure);
-  if(!list.length){box.innerHTML='<div class="empty">The Locked Vault is empty.</div>';return}
-  list.forEach(d=>box.appendChild(docRow(d)));bindOpen(box,'vault');
-}
-document.getElementById('unlockBtn').addEventListener('click',()=>{
-  if(document.getElementById('pinInput').value==='2468'){
-    vaultUnlocked=true;document.getElementById('pinInput').value='';document.getElementById('vaultStatus').textContent='';renderVault();
-  }else document.getElementById('vaultStatus').textContent='Incorrect PIN. Prototype PIN is 2468.';
-});
-document.getElementById('lockBtn').addEventListener('click',()=>{vaultUnlocked=false;renderVault()});
+  document.getElementById('vaultLocked').style.display =
+    vaultUnlocked ? 'none' : 'block';
 
-function openDoc(id,from){
-  const doc=documents.find(d=>d.id===id);if(!doc)return;
-  if(doc.secure&&!vaultUnlocked){showView('vault');return}
-  currentDocId=id;previousView=from||'docs';
-  document.getElementById('viewerName').textContent=doc.name;
-  document.getElementById('viewerMeta').textContent=doc.category+' • '+doc.pages.length+' page'+(doc.pages.length===1?'':'s');
-  document.getElementById('viewerSecurity').textContent=doc.secure?'🔒 Locked Vault':'Regular document';
-  document.getElementById('viewerNote').textContent=doc.note||'No note added.';
-  const box=document.getElementById('viewerPages');box.innerHTML='';
-  doc.pages.forEach((p,i)=>{
-    const d=document.createElement('div');d.className='viewer-page';
-    d.innerHTML=`<img src="${p.data}" alt="${esc(p.label||('Page '+(i+1)))}"><div>${esc(p.label||('Page '+(i+1)+' of '+doc.pages.length))}</div>`;
+  document.getElementById('vaultOpen').style.display =
+    vaultUnlocked ? 'block' : 'none';
+
+  if(!vaultUnlocked) return;
+
+  const box = document.getElementById('vaultList');
+  box.innerHTML = '';
+
+  const list = documents.filter(d => d.secure);
+
+  if(!list.length){
+    box.innerHTML =
+      '<div class="empty">The Locked Vault is empty.</div>';
+    return;
+  }
+
+  list.forEach(d => box.appendChild(docRow(d)));
+  bindOpen(box, 'vault');
+}
+
+document.getElementById('unlockBtn').addEventListener('click', () => {
+  if(document.getElementById('pinInput').value === '2468'){
+    vaultUnlocked = true;
+    document.getElementById('pinInput').value = '';
+    document.getElementById('vaultStatus').textContent = '';
+    renderVault();
+  }else{
+    document.getElementById('vaultStatus').textContent =
+      'Incorrect PIN. Prototype PIN is 2468.';
+  }
+});
+
+document.getElementById('lockBtn').addEventListener('click', () => {
+  vaultUnlocked = false;
+  renderVault();
+});
+
+function openDoc(id, from){
+  const doc = documents.find(d => d.id === id);
+
+  if(!doc) return;
+
+  if(doc.secure && !vaultUnlocked){
+    showView('vault');
+    return;
+  }
+
+  currentDocId = id;
+  previousView = from || 'docs';
+
+  document.getElementById('viewerName').textContent = doc.name;
+
+  document.getElementById('viewerMeta').textContent =
+    doc.category + ' • ' +
+    doc.pages.length + ' page' +
+    (doc.pages.length === 1 ? '' : 's');
+
+  document.getElementById('viewerSecurity').textContent =
+    doc.secure ? '🔒 Locked Vault' : 'Regular document';
+
+  document.getElementById('viewerNote').textContent =
+    doc.note || 'No note added.';
+
+  const box = document.getElementById('viewerPages');
+  box.innerHTML = '';
+
+  doc.pages.forEach((p,i) => {
+    const d = document.createElement('div');
+    d.className = 'viewer-page';
+
+    d.innerHTML = `
+      <img src="${p.data}"
+           alt="${esc(p.label || ('Page ' + (i+1)))}">
+      <div>
+        ${esc(p.label || ('Page ' + (i+1) + ' of ' + doc.pages.length))}
+      </div>
+    `;
+
     box.appendChild(d);
   });
-  document.getElementById('viewerStatus').textContent='';
+
+  document.getElementById('viewerStatus').textContent = '';
   showView('viewer');
 }
-document.getElementById('viewerBack').addEventListener('click',()=>showView(previousView));
 
-document.getElementById('printBtn').addEventListener('click',()=>window.print());
-document.getElementById('pdfBtn').addEventListener('click',()=>{
-  document.getElementById('viewerStatus').textContent='Choose “Save as PDF” in the print window.';
-  setTimeout(()=>window.print(),250);
+document.getElementById('viewerBack').addEventListener('click', () => {
+  showView(previousView);
 });
-document.getElementById('shareBtn').addEventListener('click',async()=>{
-  const doc=documents.find(d=>d.id===currentDocId);if(!doc)return;
-  const text=`DocuKeep document: ${doc.name} (${doc.pages.length} page${doc.pages.length===1?'':'s'})`;
+
+document.getElementById('printBtn').addEventListener('click', () => {
+  window.print();
+});
+
+document.getElementById('pdfBtn').addEventListener('click', () => {
+  document.getElementById('viewerStatus').textContent =
+    'Choose “Save as PDF” in the print window.';
+  setTimeout(() => window.print(), 250);
+});
+
+document.getElementById('shareBtn').addEventListener('click', async () => {
+  const doc = documents.find(d => d.id === currentDocId);
+
+  if(!doc) return;
+
+  const text =
+    `DocuKeep document: ${doc.name} ` +
+    `(${doc.pages.length} page${doc.pages.length === 1 ? '' : 's'})`;
+
   if(navigator.share){
-    try{await navigator.share({title:doc.name,text});document.getElementById('viewerStatus').textContent='Share menu opened.'}
-    catch(e){document.getElementById('viewerStatus').textContent='Sharing was cancelled.'}
+    try{
+      await navigator.share({
+        title: doc.name,
+        text
+      });
+
+      document.getElementById('viewerStatus').textContent =
+        'Share menu opened.';
+    }catch(e){
+      document.getElementById('viewerStatus').textContent =
+        'Sharing was cancelled.';
+    }
   }else{
-    document.getElementById('viewerStatus').textContent='Sharing is not supported in this browser.';
+    document.getElementById('viewerStatus').textContent =
+      'Sharing is not supported in this browser.';
   }
 });
 
-document.getElementById('viewerAddPage').addEventListener('change',async e=>{
-  const doc=documents.find(d=>d.id===currentDocId);if(!doc)return;
-  const files=[...e.target.files].slice(0,20-doc.pages.length);
+document.getElementById('viewerAddPage').addEventListener('change', async e => {
+  const doc = documents.find(d => d.id === currentDocId);
+
+  if(!doc) return;
+
+  const files = [...e.target.files].slice(0, 20 - doc.pages.length);
+
   for(const file of files){
-    try{doc.pages.push({label:'',data:await fileToCompressedDataURL(file)})}catch(err){}
+    try{
+      doc.pages.push({
+        label:'',
+        data: await fileToCompressedDataURL(file)
+      });
+    }catch(err){}
   }
-  const total=doc.pages.length;
-  doc.pages.forEach((p,i)=>p.label= total===2 ? (i===0?'Front':'Back') : `Page ${i+1} of ${total}`);
-  saveDB();e.target.value='';openDoc(currentDocId,previousView);
-  document.getElementById('viewerStatus').textContent='Page added.';
-});
-document.getElementById('deleteDoc').addEventListener('click',()=>{
-  const idx=documents.findIndex(d=>d.id===currentDocId);if(idx<0)return;
-  if(!confirm('Delete this document from DocuKeep?'))return;
-  documents.splice(idx,1);saveDB();currentDocId=null;showView(previousView==='vault'?'vault':'docs');
+
+  const total = doc.pages.length;
+
+  doc.pages.forEach((p,i) => {
+    p.label =
+      total === 2
+        ? (i === 0 ? 'Front' : 'Back')
+        : `Page ${i+1} of ${total}`;
+  });
+
+  saveDB();
+  e.target.value = '';
+
+  openDoc(currentDocId, previousView);
+
+  document.getElementById('viewerStatus').textContent =
+    'Page added.';
 });
 
-renderWorkingPages();renderDocs();renderSearch();
+document.getElementById('deleteDoc').addEventListener('click', () => {
+  const idx = documents.findIndex(d => d.id === currentDocId);
+
+  if(idx < 0) return;
+
+  if(!confirm('Delete this document from DocuKeep?')) return;
+
+  documents.splice(idx,1);
+  saveDB();
+
+  currentDocId = null;
+
+  showView(previousView === 'vault' ? 'vault' : 'docs');
+});
+
+renderWorkingPages();
+renderDocs();
+renderSearch();
 </script>
+
 </body>
 </html>
