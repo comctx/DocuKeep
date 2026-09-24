@@ -742,14 +742,14 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
 <script>
 const DB_NAME = 'docukeep_secure_v2';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
 const PENDING_STORE = 'pending';
 const MAX_IMAGE_SIDE = 1200;
 const JPEG_QUALITY = 0.72;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MAX_FAILED_PINS = 5;
 const PIN_LOCKOUT_MS = 30 * 1000;
 
@@ -763,6 +763,8 @@ let inactivityTimer = null;
 let failedPinAttempts = 0;
 let pinLockoutUntil = 0;
 let corruptedRecordCount = 0;
+let trustedExternalInteractionUntil = 0;
+let backgroundLockTimer = null;
 
 function bufToArray(buf){
   return Array.from(new Uint8Array(buf));
@@ -845,6 +847,139 @@ function idbClear(store){
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+function replaceVaultAtomically(vaultConfig,schemaConfig,rows){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(
+      [CONFIG_STORE,DOC_STORE,PENDING_STORE],
+      'readwrite'
+    );
+
+    const configStore = tx.objectStore(CONFIG_STORE);
+    const docStore = tx.objectStore(DOC_STORE);
+    const pendingStore = tx.objectStore(PENDING_STORE);
+
+    configStore.clear();
+    docStore.clear();
+    pendingStore.clear();
+
+    configStore.put(vaultConfig);
+    configStore.put(
+      schemaConfig || {
+        id:'schema',
+        version:SCHEMA_VERSION,
+        updatedAt:new Date().toISOString()
+      }
+    );
+
+    for(const row of rows){
+      docStore.put(row);
+    }
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Restore transaction aborted'));
+  });
+}
+
+async function requestPersistentStorage(){
+  if(!navigator.storage || !navigator.storage.persist){
+    return false;
+  }
+
+  try{
+    if(navigator.storage.persisted){
+      const already = await navigator.storage.persisted();
+      if(already) return true;
+    }
+
+    return await navigator.storage.persist();
+  }catch(err){
+    return false;
+  }
+}
+
+function markTrustedExternalInteraction(ms=120000){
+  trustedExternalInteractionUntil = Date.now() + ms;
+}
+
+function trustedExternalInteractionActive(){
+  return Date.now() < trustedExternalInteractionUntil;
+}
+
+async function verifyBackupCompletely(backup,backupPin){
+  if(
+    !backup ||
+    backup.format !== 'DocuKeepEncryptedBackup' ||
+    !backup.config ||
+    !backup.config.vault ||
+    !Array.isArray(backup.docs)
+  ){
+    throw new Error('Invalid backup structure');
+  }
+
+  const vault = backup.config.vault;
+
+  if(
+    !Array.isArray(vault.salt) ||
+    !Array.isArray(vault.verifierIv) ||
+    !Array.isArray(vault.verifierCipher)
+  ){
+    throw new Error('Invalid vault configuration');
+  }
+
+  const key = await deriveKey(
+    backupPin,
+    new Uint8Array(vault.salt)
+  );
+
+  const verifier = await decryptObject(
+    {
+      iv:vault.verifierIv,
+      cipher:vault.verifierCipher
+    },
+    key
+  );
+
+  if(!verifier || verifier.ok !== 'DOCUKEEP_OK'){
+    throw new Error('Incorrect backup PIN');
+  }
+
+  const seenIds = new Set();
+
+  for(const row of backup.docs){
+    if(
+      typeof row.id !== 'number' ||
+      !Array.isArray(row.iv) ||
+      !Array.isArray(row.cipher) ||
+      seenIds.has(row.id)
+    ){
+      throw new Error('Invalid encrypted document record');
+    }
+
+    seenIds.add(row.id);
+
+    const doc = await decryptObject(row,key);
+
+    if(
+      !doc ||
+      doc.id !== row.id ||
+      typeof doc.name !== 'string' ||
+      !Array.isArray(doc.pages) ||
+      doc.pages.length < 1
+    ){
+      throw new Error('Backup document failed integrity check');
+    }
+
+    for(const page of doc.pages){
+      if(!page || typeof page.data !== 'string'){
+        throw new Error('Backup page failed integrity check');
+      }
+    }
+  }
+
+  return true;
 }
 
 async function recoverPendingWrites(){
@@ -931,7 +1066,9 @@ async function saveBackupFile(filename,text){
     navigator.canShare &&
     navigator.canShare({files:[file]})
   ){
-    await navigator.share({
+    markTrustedExternalInteraction();
+    markTrustedExternalInteraction();
+      await navigator.share({
       title:'DocuKeep Encrypted Backup',
       text:'Save this encrypted DocuKeep backup somewhere safe.',
       files:[file]
@@ -1199,13 +1336,15 @@ function showLocked(){
   document.getElementById('appShell').style.display = 'none';
 }
 
-function showUnlockedApp(){
+async function showUnlockedApp(){
   document.getElementById('setupShell').style.display = 'none';
   document.getElementById('lockedShell').style.display = 'none';
   document.getElementById('appShell').style.display = 'block';
 
   showView('home');
   resetInactivity();
+
+  await requestPersistentStorage();
   updateStorageStatus();
 }
 
@@ -1225,15 +1364,45 @@ function resetInactivity(){
 });
 
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden && cryptoKey){
-    showLocked();
+  if(!cryptoKey) return;
+
+  if(document.hidden){
+    clearTimeout(backgroundLockTimer);
+
+    if(trustedExternalInteractionActive()){
+      return;
+    }
+
+    backgroundLockTimer = setTimeout(()=>{
+      if(document.hidden && cryptoKey && !trustedExternalInteractionActive()){
+        showLocked();
+      }
+    },3000);
+
+  }else{
+    clearTimeout(backgroundLockTimer);
+    backgroundLockTimer = null;
+
+    if(trustedExternalInteractionActive()){
+      trustedExternalInteractionUntil = 0;
+      resetInactivity();
+    }
   }
 });
 
 window.addEventListener('pagehide',()=>{
-  if(cryptoKey){
-    showLocked();
+  if(!cryptoKey) return;
+
+  if(trustedExternalInteractionActive()){
+    return;
   }
+
+  clearTimeout(backgroundLockTimer);
+  backgroundLockTimer = setTimeout(()=>{
+    if(cryptoKey && !trustedExternalInteractionActive()){
+      showLocked();
+    }
+  },3000);
 });
 
 async function updateStorageStatus(){
@@ -1255,6 +1424,15 @@ async function updateStorageStatus(){
     const quota = estimate.quota || 0;
     const usedMB = (used / 1024 / 1024).toFixed(1);
 
+    let persistenceNote = '';
+    if(navigator.storage && navigator.storage.persisted){
+      try{
+        persistenceNote = (await navigator.storage.persisted())
+          ? ' • Storage protection enabled.'
+          : ' • Standard browser storage.';
+      }catch(err){}
+    }
+
     if(quota > 0){
       const quotaMB = (quota / 1024 / 1024).toFixed(0);
       const pct = Math.round((used / quota) * 100);
@@ -1262,9 +1440,10 @@ async function updateStorageStatus(){
       box.textContent =
         `Browser storage: ${usedMB} MB used of about ${quotaMB} MB (${pct}%).` +
         (pct >= 80 ? ' Storage is getting full.' : '') +
+        persistenceNote +
         integrityMessage;
     }else{
-      box.textContent = `Browser storage in use: ${usedMB} MB.` + integrityMessage;
+      box.textContent = `Browser storage in use: ${usedMB} MB.` + persistenceNote + integrityMessage;
     }
   }catch(err){
     box.textContent = 'Encrypted local storage is active.' + integrityMessage;
@@ -1315,6 +1494,17 @@ document.querySelectorAll('[data-go]').forEach(b=>{
 document.getElementById('createVaultBtn').addEventListener('click',createVault);
 document.getElementById('unlockAppBtn').addEventListener('click',unlockApp);
 document.getElementById('lockNowBtn').addEventListener('click',showLocked);
+
+document.querySelectorAll('input[type="file"]').forEach(input=>{
+  input.addEventListener('click',()=>{
+    markTrustedExternalInteraction();
+  });
+});
+
+document.getElementById('openCameraBtn').addEventListener('click',()=>{
+  markTrustedExternalInteraction(30000);
+});
+
 
 document.getElementById('exportBackupBtn').addEventListener('click',async()=>{
   const status = document.getElementById('backupStatus');
@@ -1392,6 +1582,8 @@ document.getElementById('restoreBackupInput').addEventListener('change',async e=
   if(!file) return;
 
   try{
+    status.textContent = 'Checking backup...';
+
     const raw = await file.text();
     const backup = JSON.parse(raw);
 
@@ -1404,46 +1596,61 @@ document.getElementById('restoreBackupInput').addEventListener('change',async e=
       throw new Error('Invalid backup');
     }
 
-    if(!confirm(
-      'Restore this DocuKeep backup? The current vault on this device will be replaced.'
-    )){
+    const backupPin = prompt(
+      'Enter the PIN that belongs to this backup. Your current vault will not be changed unless the backup passes every check.'
+    );
+
+    if(backupPin === null){
       e.target.value = '';
+      status.textContent = 'Restore canceled. Your current vault was not changed.';
       return;
     }
 
-    // Replace the two stores only after the backup has been fully parsed and validated.
-    await idbClear(DOC_STORE);
-    await idbClear(PENDING_STORE);
-    await idbClear(CONFIG_STORE);
+    status.textContent = 'Verifying every encrypted document...';
 
-    await idbPut(CONFIG_STORE,backup.config.vault);
-    await idbPut(
-      CONFIG_STORE,
-      backup.config.schema || {id:'schema',version:backup.version || SCHEMA_VERSION}
+    // Nothing in the current vault is touched until this completes successfully.
+    await verifyBackupCompletely(backup,backupPin);
+
+    const approved = confirm(
+      `Backup verified successfully (${backup.docs.length} document record${backup.docs.length===1?'':'s'}). Replace the current vault with this backup?`
     );
 
-    for(const row of backup.docs){
-      if(
-        typeof row.id !== 'number' ||
-        !Array.isArray(row.iv) ||
-        !Array.isArray(row.cipher)
-      ){
-        throw new Error('Invalid encrypted document record');
-      }
-
-      await idbPut(DOC_STORE,row);
+    if(!approved){
+      e.target.value = '';
+      status.textContent = 'Restore canceled. Your current vault was not changed.';
+      return;
     }
+
+    status.textContent = 'Restoring verified backup...';
+
+    // One IndexedDB transaction: either the entire replacement commits,
+    // or IndexedDB automatically rolls it back.
+    await replaceVaultAtomically(
+      backup.config.vault,
+      backup.config.schema || {
+        id:'schema',
+        version:backup.version || SCHEMA_VERSION,
+        updatedAt:new Date().toISOString()
+      },
+      backup.docs
+    );
 
     e.target.value = '';
     status.textContent =
-      'Backup restored. DocuKeep will lock now; use the PIN that belongs to the backup.';
+      'Backup restored safely. DocuKeep will lock now; use the PIN that belongs to the restored backup.';
 
     setTimeout(showLocked,700);
 
   }catch(err){
     e.target.value = '';
-    status.textContent =
-      'That file is not a valid DocuKeep encrypted backup.';
+
+    if(String(err && err.message).includes('Incorrect backup PIN')){
+      status.textContent =
+        'That PIN does not match this backup. Your current vault was not changed.';
+    }else{
+      status.textContent =
+        'Backup verification failed. Your current vault was not changed.';
+    }
   }
 });
 
