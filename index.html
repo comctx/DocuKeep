@@ -465,11 +465,27 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   </div>
 
   <div class="card">
-    <strong>Security</strong>
+    <strong>Security & Backup</strong>
     <p class="small">
-      This build uses AES-GCM encryption derived from your PIN and stores encrypted
-      document records in IndexedDB. It automatically locks after 5 minutes of inactivity.
+      Your saved document records are encrypted before being stored on this device.
+      DocuKeep locks automatically after inactivity and when the app goes into the background.
     </p>
+
+    <div class="edit-actions no-print">
+      <button id="exportBackupBtn" type="button" class="secondary">
+        ⬇️ Export Encrypted Backup
+      </button>
+
+      <label class="secondary"
+             style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+        ⬆️ Restore Backup
+        <input id="restoreBackupInput" type="file" accept="application/json,.json"
+               style="position:absolute;inset:0;opacity:0;cursor:pointer;margin:0">
+      </label>
+    </div>
+
+    <div id="backupStatus" class="status"></div>
+    <div id="storageStatus" class="small"></div>
   </div>
 </section>
 
@@ -715,12 +731,15 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
 <script>
 const DB_NAME = 'docukeep_secure_v2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
 const MAX_IMAGE_SIDE = 1200;
 const JPEG_QUALITY = 0.72;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
+const SCHEMA_VERSION = 2;
+const MAX_FAILED_PINS = 5;
+const PIN_LOCKOUT_MS = 30 * 1000;
 
 let db = null;
 let cryptoKey = null;
@@ -729,6 +748,9 @@ let workingPages = [];
 let currentDocId = null;
 let previousView = 'docs';
 let inactivityTimer = null;
+let failedPinAttempts = 0;
+let pinLockoutUntil = 0;
+let corruptedRecordCount = 0;
 
 function bufToArray(buf){
   return Array.from(new Uint8Array(buf));
@@ -797,6 +819,30 @@ function idbDelete(store,id){
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+function idbClear(store){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).clear();
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function downloadTextFile(filename,text){
+  const blob = new Blob([text],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 async function deriveKey(pin,saltArray){
@@ -905,6 +951,12 @@ async function unlockApp(){
   const pin = document.getElementById('unlockPin').value.trim();
   const status = document.getElementById('unlockStatus');
 
+  if(Date.now() < pinLockoutUntil){
+    const seconds = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
+    status.textContent = `Too many incorrect attempts. Try again in ${seconds} seconds.`;
+    return;
+  }
+
   const config = await idbGet(CONFIG_STORE,'vault');
 
   if(!config){
@@ -921,6 +973,8 @@ async function unlockApp(){
     }
 
     cryptoKey = key;
+    failedPinAttempts = 0;
+    pinLockoutUntil = 0;
 
     document.getElementById('unlockPin').value = '';
     status.textContent = '';
@@ -929,20 +983,45 @@ async function unlockApp(){
     showUnlockedApp();
 
   }catch(err){
-    status.textContent = 'Incorrect PIN.';
+    failedPinAttempts += 1;
+
+    if(failedPinAttempts >= MAX_FAILED_PINS){
+      pinLockoutUntil = Date.now() + PIN_LOCKOUT_MS;
+      failedPinAttempts = 0;
+      status.textContent = 'Too many incorrect attempts. Try again in 30 seconds.';
+    }else{
+      status.textContent = `Incorrect PIN. ${MAX_FAILED_PINS - failedPinAttempts} attempt(s) before a short delay.`;
+    }
   }
 }
 
 async function loadDocuments(){
   documents = [];
+  corruptedRecordCount = 0;
 
   const rows = await idbGetAll(DOC_STORE);
 
   for(const row of rows){
     try{
       const doc = await decryptObject(row,cryptoKey);
+
+      // Lightweight migration for documents created by older builds.
+      if(!doc.schemaVersion) doc.schemaVersion = 1;
+      if(!doc.createdAt) doc.createdAt = doc.id || Date.now();
+      if(!doc.updatedAt) doc.updatedAt = doc.createdAt;
+
+      if(doc.schemaVersion < SCHEMA_VERSION){
+        doc.schemaVersion = SCHEMA_VERSION;
+        doc.updatedAt = Date.now();
+        await persistDoc(doc);
+      }
+
       documents.push(doc);
-    }catch(err){}
+
+    }catch(err){
+      // AES-GCM authentication failure or damaged record.
+      corruptedRecordCount += 1;
+    }
   }
 
   documents.sort((a,b)=>b.id-a.id);
@@ -952,6 +1031,13 @@ async function persistDoc(doc){
   if(!cryptoKey){
     throw new Error('DocuKeep is locked');
   }
+
+  if(!doc.createdAt){
+    doc.createdAt = doc.id || Date.now();
+  }
+
+  doc.updatedAt = Date.now();
+  doc.schemaVersion = SCHEMA_VERSION;
 
   const encrypted = await encryptObject(doc,cryptoKey);
 
@@ -990,6 +1076,7 @@ function showUnlockedApp(){
 
   showView('home');
   resetInactivity();
+  updateStorageStatus();
 }
 
 function resetInactivity(){
@@ -1006,6 +1093,53 @@ function resetInactivity(){
     {passive:true}
   );
 });
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden && cryptoKey){
+    showLocked();
+  }
+});
+
+window.addEventListener('pagehide',()=>{
+  if(cryptoKey){
+    showLocked();
+  }
+});
+
+async function updateStorageStatus(){
+  const box = document.getElementById('storageStatus');
+  if(!box) return;
+
+  const integrityMessage = corruptedRecordCount > 0
+    ? ` • Warning: ${corruptedRecordCount} damaged encrypted record(s) could not be opened.`
+    : ' • Integrity check passed.';
+
+  if(!navigator.storage || !navigator.storage.estimate){
+    box.textContent = 'Encrypted local storage is active.' + integrityMessage;
+    return;
+  }
+
+  try{
+    const estimate = await navigator.storage.estimate();
+    const used = estimate.usage || 0;
+    const quota = estimate.quota || 0;
+    const usedMB = (used / 1024 / 1024).toFixed(1);
+
+    if(quota > 0){
+      const quotaMB = (quota / 1024 / 1024).toFixed(0);
+      const pct = Math.round((used / quota) * 100);
+
+      box.textContent =
+        `Browser storage: ${usedMB} MB used of about ${quotaMB} MB (${pct}%).` +
+        (pct >= 80 ? ' Storage is getting full.' : '') +
+        integrityMessage;
+    }else{
+      box.textContent = `Browser storage in use: ${usedMB} MB.` + integrityMessage;
+    }
+  }catch(err){
+    box.textContent = 'Encrypted local storage is active.' + integrityMessage;
+  }
+}
 
 function esc(s){
   return String(s ?? '').replace(/[&<>"']/g,c=>({
@@ -1051,6 +1185,106 @@ document.querySelectorAll('[data-go]').forEach(b=>{
 document.getElementById('createVaultBtn').addEventListener('click',createVault);
 document.getElementById('unlockAppBtn').addEventListener('click',unlockApp);
 document.getElementById('lockNowBtn').addEventListener('click',showLocked);
+
+document.getElementById('exportBackupBtn').addEventListener('click',async()=>{
+  const status = document.getElementById('backupStatus');
+
+  try{
+    const vault = await idbGet(CONFIG_STORE,'vault');
+    const schema = await idbGet(CONFIG_STORE,'schema');
+    const rows = await idbGetAll(DOC_STORE);
+
+    if(!vault){
+      status.textContent = 'No secure vault is available to back up.';
+      return;
+    }
+
+    const backup = {
+      format:'DocuKeepEncryptedBackup',
+      version:SCHEMA_VERSION,
+      exportedAt:new Date().toISOString(),
+      config:{
+        vault,
+        schema:schema || {id:'schema',version:SCHEMA_VERSION}
+      },
+      docs:rows
+    };
+
+    const stamp = new Date().toISOString().slice(0,10);
+    downloadTextFile(
+      `DocuKeep_Backup_${stamp}.json`,
+      JSON.stringify(backup)
+    );
+
+    status.textContent =
+      `Encrypted backup exported (${rows.length} document record${rows.length===1?'':'s'}).`;
+
+  }catch(err){
+    status.textContent = 'Could not create the backup file.';
+  }
+});
+
+document.getElementById('restoreBackupInput').addEventListener('change',async e=>{
+  const status = document.getElementById('backupStatus');
+  const file = e.target.files && e.target.files[0];
+
+  if(!file) return;
+
+  try{
+    const raw = await file.text();
+    const backup = JSON.parse(raw);
+
+    if(
+      backup.format !== 'DocuKeepEncryptedBackup' ||
+      !backup.config ||
+      !backup.config.vault ||
+      !Array.isArray(backup.docs)
+    ){
+      throw new Error('Invalid backup');
+    }
+
+    if(!confirm(
+      'Restore this DocuKeep backup? The current vault on this device will be replaced.'
+    )){
+      e.target.value = '';
+      return;
+    }
+
+    // Replace the two stores only after the backup has been fully parsed and validated.
+    await idbClear(DOC_STORE);
+    await idbClear(CONFIG_STORE);
+
+    await idbPut(CONFIG_STORE,backup.config.vault);
+    await idbPut(
+      CONFIG_STORE,
+      backup.config.schema || {id:'schema',version:backup.version || SCHEMA_VERSION}
+    );
+
+    for(const row of backup.docs){
+      if(
+        typeof row.id !== 'number' ||
+        !Array.isArray(row.iv) ||
+        !Array.isArray(row.cipher)
+      ){
+        throw new Error('Invalid encrypted document record');
+      }
+
+      await idbPut(DOC_STORE,row);
+    }
+
+    e.target.value = '';
+    status.textContent =
+      'Backup restored. DocuKeep will lock now; use the PIN that belongs to the backup.';
+
+    setTimeout(showLocked,700);
+
+  }catch(err){
+    e.target.value = '';
+    status.textContent =
+      'That file is not a valid DocuKeep encrypted backup.';
+  }
+});
+
 
 async function fileToCompressedDataURL(file){
   if(!file.type.startsWith('image/')){
@@ -1322,6 +1556,7 @@ document.getElementById('docForm').addEventListener(
 
       document.getElementById('saveStatus').textContent =
         'Saved securely to DocuKeep ✓';
+      updateStorageStatus();
 
     }catch(err){
       document.getElementById('saveStatus').textContent =
@@ -1550,6 +1785,7 @@ function renderTrash(){
 
       document.getElementById('trashStatus').textContent =
         'Document permanently deleted.';
+      updateStorageStatus();
     });
   });
 }
@@ -1575,6 +1811,7 @@ document.getElementById('emptyTrashBtn').addEventListener('click',async()=>{
 
   document.getElementById('trashStatus').textContent =
     'Trash emptied.';
+  updateStorageStatus();
 });
 
 function openDoc(id,from){
@@ -1882,6 +2119,16 @@ async function init(){
 
   try{
     db = await openDB();
+
+    const currentSchema = await idbGet(CONFIG_STORE,'schema');
+
+    if(!currentSchema || currentSchema.version !== SCHEMA_VERSION){
+      await idbPut(CONFIG_STORE,{
+        id:'schema',
+        version:SCHEMA_VERSION,
+        updatedAt:new Date().toISOString()
+      });
+    }
 
     if(await hasVault()){
       document.getElementById('setupShell').style.display = 'none';
