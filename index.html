@@ -247,6 +247,40 @@ textarea{resize:vertical}
   font-size:13px;
   color:var(--muted);
 }
+
+.camera-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  z-index:9999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+}
+.camera-modal.open{display:flex}
+.camera-panel{
+  width:min(680px,100%);
+  background:#fff;
+  border-radius:16px;
+  padding:14px;
+}
+.camera-panel h3{margin:0 0 10px}
+.camera-preview{
+  width:100%;
+  max-height:70vh;
+  background:#111;
+  border-radius:12px;
+  object-fit:contain;
+  display:block;
+}
+.camera-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+
 footer{
   text-align:center;
   padding:22px 16px 34px;
@@ -401,12 +435,12 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     </p>
 
     <div class="photo-actions">
-      <label class="fake-file">
+      <button id="openCameraBtn" type="button" class="fake-file">
         <span class="ico">📷</span>
         <strong>Take Photo</strong><br>
-        <span class="small">Camera on supported phones</span>
-        <input id="cameraInput" type="file" accept="image/*" capture="environment">
-      </label>
+        <span class="small">Open camera directly</span>
+      </button>
+      <input id="cameraFallbackInput" type="file" accept="image/*" capture="environment" style="display:none">
 
       <label class="fake-file">
         <span class="ico">🖼️</span>
@@ -540,6 +574,20 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 </section>
 
 </main>
+
+
+<div id="cameraModal" class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="cameraTitle">
+  <div class="camera-panel">
+    <h3 id="cameraTitle">Take Document Photo</h3>
+    <video id="cameraVideo" class="camera-preview" autoplay playsinline muted></video>
+    <canvas id="cameraCanvas" style="display:none"></canvas>
+    <div class="camera-actions">
+      <button id="capturePhotoBtn" type="button" class="primary">📷 Capture Photo</button>
+      <button id="closeCameraBtn" type="button" class="secondary">Cancel</button>
+    </div>
+    <div id="cameraStatus" class="status"></div>
+  </div>
+</div>
 
 <footer>
   <strong>A DONCO-BAYCITY™ App</strong>
@@ -1019,7 +1067,7 @@ function renderWorkingPages(){
   });
 }
 
-['cameraInput','photoInput','multiInput'].forEach(id=>{
+['cameraFallbackInput','photoInput','multiInput'].forEach(id=>{
   document.getElementById(id).addEventListener(
     'change',
     async e=>{
@@ -1027,6 +1075,90 @@ function renderWorkingPages(){
       e.target.value = '';
     }
   );
+});
+
+let cameraStream = null;
+
+function stopCamera(){
+  if(cameraStream){
+    cameraStream.getTracks().forEach(track=>track.stop());
+    cameraStream = null;
+  }
+  document.getElementById('cameraVideo').srcObject = null;
+  document.getElementById('cameraModal').classList.remove('open');
+}
+
+async function openCamera(){
+  const status = document.getElementById('cameraStatus');
+  status.textContent = '';
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    document.getElementById('cameraFallbackInput').click();
+    return;
+  }
+
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video:{
+        facingMode:{ideal:'environment'}
+      },
+      audio:false
+    });
+
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = cameraStream;
+
+    document.getElementById('cameraModal').classList.add('open');
+    await video.play();
+
+  }catch(err){
+    status.textContent = 'Camera could not open. Using the photo picker instead.';
+    stopCamera();
+    document.getElementById('cameraFallbackInput').click();
+  }
+}
+
+document.getElementById('openCameraBtn').addEventListener('click',openCamera);
+document.getElementById('closeCameraBtn').addEventListener('click',stopCamera);
+
+document.getElementById('capturePhotoBtn').addEventListener('click',async()=>{
+  const video = document.getElementById('cameraVideo');
+
+  if(!video.videoWidth || !video.videoHeight){
+    document.getElementById('cameraStatus').textContent = 'Camera is not ready yet.';
+    return;
+  }
+
+  const canvas = document.getElementById('cameraCanvas');
+
+  let width = video.videoWidth;
+  let height = video.videoHeight;
+
+  const scale = Math.min(
+    1,
+    MAX_IMAGE_SIDE / Math.max(width,height)
+  );
+
+  canvas.width = Math.max(1,Math.round(width*scale));
+  canvas.height = Math.max(1,Math.round(height*scale));
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+  const data = canvas.toDataURL('image/jpeg',JPEG_QUALITY);
+
+  workingPages.push({
+    label:'',
+    data
+  });
+
+  relabelWorkingPages();
+  renderWorkingPages();
+
+  document.getElementById('pageStatus').textContent =
+    workingPages.length + ' page(s) ready.';
+
+  stopCamera();
 });
 
 document.getElementById('docForm').addEventListener(
