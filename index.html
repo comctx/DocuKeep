@@ -229,7 +229,7 @@ textarea{resize:vertical}
 }
 .toolbar{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(5,1fr);
   gap:8px;
   margin-top:14px;
 }
@@ -288,6 +288,44 @@ textarea{resize:vertical}
   grid-template-columns:1fr 1fr;
   gap:10px;
   margin-top:12px;
+}
+
+
+.viewer-page .page-controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  justify-content:center;
+  padding:8px;
+  border-top:1px solid var(--line);
+  background:#fff;
+}
+.viewer-page .page-controls button{
+  min-height:38px;
+  padding:7px 10px;
+  font-size:13px;
+}
+.section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.edit-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.trash-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+@media(max-width:700px){
+  .edit-actions{grid-template-columns:1fr}
 }
 
 footer{
@@ -514,8 +552,30 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
 <section id="docs" class="view">
   <div class="card">
-    <h2>My Documents</h2>
+    <div class="section-head">
+      <div>
+        <h2 style="margin-bottom:4px">My Documents</h2>
+        <div class="small">Browse your saved papers.</div>
+      </div>
+      <button type="button" class="secondary" data-go="trash">🗑️ Trash</button>
+    </div>
+    <div class="spacer"></div>
     <div id="docList"></div>
+  </div>
+</section>
+
+<section id="trash" class="view">
+  <div class="card">
+    <div class="section-head">
+      <div>
+        <h2 style="margin-bottom:4px">Trash</h2>
+        <div class="small">Restore a document or delete it permanently.</div>
+      </div>
+      <button id="emptyTrashBtn" type="button" class="secondary danger">Empty Trash</button>
+    </div>
+    <div class="spacer"></div>
+    <div id="trashList"></div>
+    <div id="trashStatus" class="status"></div>
   </div>
 </section>
 
@@ -537,6 +597,52 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     </p>
     <div id="vaultList"></div>
   </div>
+</section>
+
+<section id="editor" class="view">
+  <button id="editBackBtn" type="button" class="secondary no-print">← Back</button>
+  <div class="spacer"></div>
+
+  <form id="editForm" class="card">
+    <h2>Edit Document</h2>
+
+    <label for="editName">Document name</label>
+    <input id="editName" required maxlength="70">
+
+    <div class="spacer"></div>
+
+    <label for="editCategory">Category</label>
+    <select id="editCategory">
+      <option>Receipts</option>
+      <option>Insurance</option>
+      <option>Vehicle</option>
+      <option>Home</option>
+      <option>Medical</option>
+      <option>Legal</option>
+      <option>Taxes</option>
+      <option>Warranty</option>
+      <option>Other</option>
+    </select>
+
+    <div class="spacer"></div>
+
+    <label for="editNote">Optional note</label>
+    <textarea id="editNote" rows="3" maxlength="220"></textarea>
+
+    <div class="spacer"></div>
+
+    <label style="display:flex;gap:10px;align-items:center;font-weight:600">
+      <input id="editSecure" type="checkbox" style="width:22px;height:22px;margin:0">
+      Keep this document in the Locked Vault
+    </label>
+
+    <div class="edit-actions">
+      <button type="submit" class="primary">Save Changes</button>
+      <button id="cancelEditBtn" type="button" class="secondary">Cancel</button>
+    </div>
+
+    <div id="editStatus" class="status"></div>
+  </form>
 </section>
 
 <section id="viewer" class="view">
@@ -562,6 +668,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     <div id="viewerNote" class="small" style="margin-top:5px"></div>
 
     <div id="viewerToolbar" class="toolbar no-print">
+      <button id="editDocBtn" type="button" class="secondary">✏️ Edit</button>
       <button id="printBtn" type="button" class="secondary">🖨️ Print</button>
       <button id="shareBtn" type="button" class="secondary">↗️ Share</button>
       <button id="pdfBtn" type="button" class="secondary">📄 Save as PDF</button>
@@ -577,7 +684,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     <div id="viewerStatus" class="status no-print"></div>
 
     <button id="deleteDoc" type="button" class="secondary danger no-print">
-      Delete Document
+      Move to Trash
     </button>
   </div>
 </section>
@@ -924,6 +1031,7 @@ function showView(name){
   if(name==='docs') renderDocs();
   if(name==='search') renderSearch();
   if(name==='vault') renderVault();
+  if(name==='trash') renderTrash();
 
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -1262,12 +1370,45 @@ function bindOpen(container,from){
   });
 }
 
+
+function relabelDocPages(doc){
+  const total = doc.pages.length;
+
+  doc.pages.forEach((p,i)=>{
+    p.label = total===2
+      ? (i===0 ? 'Front' : 'Back')
+      : `Page ${i+1} of ${total}`;
+  });
+}
+
+async function rotatePageData(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      canvas.width = img.height;
+      canvas.height = img.width;
+
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.rotate(Math.PI/2);
+      ctx.drawImage(img,-img.width/2,-img.height/2);
+
+      resolve(canvas.toDataURL('image/jpeg',JPEG_QUALITY));
+    };
+
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
 function renderDocs(){
   const box = document.getElementById('docList');
 
   box.innerHTML = '';
 
-  const list = documents.filter(d=>!d.secure);
+  const list = documents.filter(d=>!d.secure && !d.trashedAt);
 
   if(!list.length){
     box.innerHTML =
@@ -1296,6 +1437,7 @@ function renderSearch(){
 
   const list = documents.filter(d=>
     !d.secure &&
+    !d.trashedAt &&
     (
       !q ||
       [d.name,d.category,d.note]
@@ -1328,7 +1470,7 @@ function renderVault(){
   box.innerHTML = '';
 
   const list =
-    documents.filter(d=>d.secure);
+    documents.filter(d=>d.secure && !d.trashedAt);
 
   if(!list.length){
     box.innerHTML =
@@ -1343,17 +1485,107 @@ function renderVault(){
   bindOpen(box,'vault');
 }
 
-function openDoc(id,from){
-  const doc =
-    documents.find(d=>d.id===id);
 
-  if(!doc) return;
+function trashRow(doc){
+  const div = document.createElement('div');
+  div.className = 'doc';
+
+  div.innerHTML = `
+    <div class="icon">🗑️</div>
+    <div class="info">
+      <strong>${esc(doc.name)}</strong>
+      <span>${esc(doc.category)} • ${doc.pages.length} page${doc.pages.length===1?'':'s'}</span>
+      <div class="trash-actions">
+        <button type="button" class="secondary restoreDoc" data-id="${doc.id}">Restore</button>
+        <button type="button" class="secondary danger deleteForever" data-id="${doc.id}">Delete Forever</button>
+      </div>
+    </div>
+  `;
+
+  return div;
+}
+
+function renderTrash(){
+  const box = document.getElementById('trashList');
+  box.innerHTML = '';
+
+  const list = documents
+    .filter(d=>d.trashedAt)
+    .sort((a,b)=>b.trashedAt-a.trashedAt);
+
+  if(!list.length){
+    box.innerHTML = '<div class="empty">Trash is empty.</div>';
+    return;
+  }
+
+  list.forEach(doc=>box.appendChild(trashRow(doc)));
+
+  box.querySelectorAll('.restoreDoc').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const doc = documents.find(d=>d.id===Number(btn.dataset.id));
+      if(!doc) return;
+
+      delete doc.trashedAt;
+      await persistDoc(doc);
+      renderTrash();
+
+      document.getElementById('trashStatus').textContent =
+        'Document restored.';
+    });
+  });
+
+  box.querySelectorAll('.deleteForever').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const id = Number(btn.dataset.id);
+      const doc = documents.find(d=>d.id===id);
+      if(!doc) return;
+
+      if(!confirm(`Permanently delete "${doc.name}"? This cannot be undone.`)){
+        return;
+      }
+
+      await idbDelete(DOC_STORE,id);
+      documents = documents.filter(d=>d.id!==id);
+      renderTrash();
+
+      document.getElementById('trashStatus').textContent =
+        'Document permanently deleted.';
+    });
+  });
+}
+
+document.getElementById('emptyTrashBtn').addEventListener('click',async()=>{
+  const trashed = documents.filter(d=>d.trashedAt);
+
+  if(!trashed.length){
+    document.getElementById('trashStatus').textContent = 'Trash is already empty.';
+    return;
+  }
+
+  if(!confirm('Permanently delete everything in Trash? This cannot be undone.')){
+    return;
+  }
+
+  for(const doc of trashed){
+    await idbDelete(DOC_STORE,doc.id);
+  }
+
+  documents = documents.filter(d=>!d.trashedAt);
+  renderTrash();
+
+  document.getElementById('trashStatus').textContent =
+    'Trash emptied.';
+});
+
+function openDoc(id,from){
+  const doc = documents.find(d=>d.id===id);
+
+  if(!doc || doc.trashedAt) return;
 
   currentDocId = id;
   previousView = from || 'docs';
 
-  document.getElementById('viewerName').textContent =
-    doc.name;
+  document.getElementById('viewerName').textContent = doc.name;
 
   document.getElementById('viewerMeta').textContent =
     doc.category +
@@ -1370,17 +1602,12 @@ function openDoc(id,from){
   document.getElementById('viewerNote').textContent =
     doc.note || 'No note added.';
 
-  const box =
-    document.getElementById('viewerPages');
-
+  const box = document.getElementById('viewerPages');
   box.innerHTML = '';
 
   doc.pages.forEach((p,i)=>{
-    const d =
-      document.createElement('div');
-
-    d.className =
-      'viewer-page';
+    const d = document.createElement('div');
+    d.className = 'viewer-page';
 
     d.innerHTML = `
       <img
@@ -1393,15 +1620,142 @@ function openDoc(id,from){
           ('Page '+(i+1)+' of '+doc.pages.length)
         )}
       </div>
+
+      <div class="page-controls no-print">
+        <button type="button" class="secondary movePageUp" data-i="${i}" ${i===0?'disabled':''}>↑ Up</button>
+        <button type="button" class="secondary movePageDown" data-i="${i}" ${i===doc.pages.length-1?'disabled':''}>↓ Down</button>
+        <button type="button" class="secondary rotatePage" data-i="${i}">↻ Rotate</button>
+        <button type="button" class="secondary danger deletePage" data-i="${i}">Delete Page</button>
+      </div>
     `;
 
     box.appendChild(d);
+  });
+
+  box.querySelectorAll('.movePageUp').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const i = Number(btn.dataset.i);
+      if(i<=0) return;
+
+      [doc.pages[i-1],doc.pages[i]] = [doc.pages[i],doc.pages[i-1]];
+      relabelDocPages(doc);
+      await persistDoc(doc);
+      openDoc(doc.id,previousView);
+      document.getElementById('viewerStatus').textContent = 'Page moved up.';
+    });
+  });
+
+  box.querySelectorAll('.movePageDown').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const i = Number(btn.dataset.i);
+      if(i>=doc.pages.length-1) return;
+
+      [doc.pages[i+1],doc.pages[i]] = [doc.pages[i],doc.pages[i+1]];
+      relabelDocPages(doc);
+      await persistDoc(doc);
+      openDoc(doc.id,previousView);
+      document.getElementById('viewerStatus').textContent = 'Page moved down.';
+    });
+  });
+
+  box.querySelectorAll('.rotatePage').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const i = Number(btn.dataset.i);
+
+      document.getElementById('viewerStatus').textContent =
+        'Rotating page...';
+
+      try{
+        doc.pages[i].data = await rotatePageData(doc.pages[i].data);
+        await persistDoc(doc);
+        openDoc(doc.id,previousView);
+        document.getElementById('viewerStatus').textContent = 'Page rotated.';
+      }catch(err){
+        document.getElementById('viewerStatus').textContent =
+          'Could not rotate this page.';
+      }
+    });
+  });
+
+  box.querySelectorAll('.deletePage').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const i = Number(btn.dataset.i);
+
+      if(doc.pages.length===1){
+        document.getElementById('viewerStatus').textContent =
+          'A document must keep at least one page. Move the whole document to Trash instead.';
+        return;
+      }
+
+      if(!confirm(`Delete ${doc.pages[i].label || 'this page'}?`)){
+        return;
+      }
+
+      doc.pages.splice(i,1);
+      relabelDocPages(doc);
+      await persistDoc(doc);
+      openDoc(doc.id,previousView);
+
+      document.getElementById('viewerStatus').textContent =
+        'Page deleted.';
+    });
   });
 
   document.getElementById('viewerStatus').textContent = '';
 
   showView('viewer');
 }
+
+
+function openEditor(){
+  const doc = documents.find(d=>d.id===currentDocId);
+
+  if(!doc || doc.trashedAt) return;
+
+  document.getElementById('editName').value = doc.name;
+  document.getElementById('editCategory').value = doc.category;
+  document.getElementById('editNote').value = doc.note || '';
+  document.getElementById('editSecure').checked = !!doc.secure;
+  document.getElementById('editStatus').textContent = '';
+
+  showView('editor');
+}
+
+document.getElementById('editDocBtn').addEventListener('click',openEditor);
+
+document.getElementById('editBackBtn').addEventListener('click',()=>{
+  openDoc(currentDocId,previousView);
+});
+
+document.getElementById('cancelEditBtn').addEventListener('click',()=>{
+  openDoc(currentDocId,previousView);
+});
+
+document.getElementById('editForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+
+  const doc = documents.find(d=>d.id===currentDocId);
+  if(!doc) return;
+
+  const name = document.getElementById('editName').value.trim();
+
+  if(!name){
+    document.getElementById('editStatus').textContent =
+      'Document name cannot be blank.';
+    return;
+  }
+
+  doc.name = name;
+  doc.category = document.getElementById('editCategory').value;
+  doc.note = document.getElementById('editNote').value.trim();
+  doc.secure = document.getElementById('editSecure').checked;
+
+  await persistDoc(doc);
+
+  openDoc(doc.id,previousView);
+  document.getElementById('viewerStatus').textContent =
+    'Changes saved.';
+});
 
 document.getElementById('viewerBack')
   .addEventListener('click',()=>{
@@ -1477,15 +1831,7 @@ document.getElementById('viewerAddPage')
       }catch(err){}
     }
 
-    const total =
-      doc.pages.length;
-
-    doc.pages.forEach((p,i)=>{
-      p.label =
-        total===2
-          ? (i===0?'Front':'Back')
-          : `Page ${i+1} of ${total}`;
-    });
+    relabelDocPages(doc);
 
     await persistDoc(doc);
 
@@ -1502,44 +1848,24 @@ document.getElementById('viewerAddPage')
 
 document.getElementById('deleteDoc')
   .addEventListener('click',async()=>{
-    const idx =
-      documents.findIndex(
-        d=>d.id===currentDocId
-      );
+    const doc = documents.find(d=>d.id===currentDocId);
 
-    if(idx<0) return;
+    if(!doc) return;
 
-    if(!confirm(
-      'Delete this document from DocuKeep?'
-    )){
+    if(!confirm(`Move "${doc.name}" to Trash?`)){
       return;
     }
 
-    const id =
-      documents[idx].id;
-
     try{
-      await idbDelete(
-        DOC_STORE,
-        id
-      );
-
-      documents.splice(
-        idx,
-        1
-      );
+      doc.trashedAt = Date.now();
+      await persistDoc(doc);
 
       currentDocId = null;
-
-      showView(
-        previousView==='vault'
-          ? 'vault'
-          : 'docs'
-      );
+      showView('docs');
 
     }catch(err){
       document.getElementById('viewerStatus').textContent =
-        'Could not delete this document.';
+        'Could not move this document to Trash.';
     }
   });
 
