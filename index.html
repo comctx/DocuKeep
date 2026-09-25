@@ -342,6 +342,38 @@ textarea{resize:vertical}
 
 
 
+
+/* ===== MyDocuKeep PIN recovery ===== */
+.recovery-question{
+  border:1px solid #dce7e1;
+  background:#f6faf8;
+  border-radius:12px;
+  padding:10px 12px;
+  margin:6px 0 8px;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.35;
+}
+.recovery-explainer{
+  border:1px solid #d8e7df;
+  background:#edf5f1;
+  border-radius:13px;
+  padding:11px 12px;
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.45;
+  margin:10px 0 14px;
+}
+.recovery-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-top:14px;
+}
+@media(max-width:430px){
+  .recovery-actions{grid-template-columns:1fr}
+}
+
 /* ===== DocuKeep v13 finishing upgrades ===== */
 .backup-reminder{
   display:flex;
@@ -978,7 +1010,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <div id="setupStatus" class="status"></div>
 
       <div class="security-note">
-        Important: if you forget this PIN, this prototype cannot recover your encrypted documents.
+        PIN recovery can use Face ID. You can also set 3 security questions as a fallback.
       </div>
     </section>
   </main>
@@ -997,6 +1029,12 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
       <button id="unlockAppBtn" class="primary" type="button">
         Unlock DocuKeep
+      </button>
+
+      <div class="spacer"></div>
+
+      <button id="forgotPinBtn" class="secondary" type="button" style="width:100%">
+        Forgot PIN?
       </button>
 
       <div id="unlockStatus" class="status"></div>
@@ -1111,8 +1149,15 @@ footer strong{color:var(--ink);letter-spacing:.03em}
         <button id="openChangePinBtn" type="button" class="secondary no-print" style="width:100%">
           🔑 Change PIN
         </button>
+
+        <div class="spacer"></div>
+
+        <button id="openRecoverySetupBtn" type="button" class="secondary no-print" style="width:100%">
+          🙂 Face ID & Security Questions
+        </button>
+
         <div class="change-pin-note">
-          Changing your PIN safely re-encrypts the current vault. Older backup files still use the PIN they were created with.
+          Changing your PIN updates the vault's PIN protection. Older backup files still use the PIN they were created with.
         </div>
 
         <div id="backupStatus" class="status"></div>
@@ -1385,6 +1430,95 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   </div>
 </div>
 
+
+<div id="recoverySetupModal" class="modal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="recoverySetupTitle">
+  <div class="modal-card">
+    <h2 id="recoverySetupTitle">Set Up PIN Recovery</h2>
+    <p class="small">
+      If you forget your MyDocuKeep PIN, Face ID can let you create a new PIN.
+      These 3 questions are your backup if Face ID is not available.
+    </p>
+
+    <div class="recovery-explainer">
+      Your answers are not stored as readable text. You will need all 3 answers to use this fallback.
+    </div>
+
+    <label for="recoveryAnswer1">Question 1</label>
+    <div class="recovery-question">What nickname did you use for a favorite childhood toy or object?</div>
+    <input id="recoveryAnswer1" autocomplete="off" maxlength="80" placeholder="Your answer">
+
+    <div class="spacer"></div>
+
+    <label for="recoveryAnswer2">Question 2</label>
+    <div class="recovery-question">What was a special name your family used for a place?</div>
+    <input id="recoveryAnswer2" autocomplete="off" maxlength="80" placeholder="Your answer">
+
+    <div class="spacer"></div>
+
+    <label for="recoveryAnswer3">Question 3</label>
+    <div class="recovery-question">What private word or phrase will you remember years from now?</div>
+    <input id="recoveryAnswer3" autocomplete="off" maxlength="80" placeholder="Your answer">
+
+    <div class="recovery-actions">
+      <button id="saveRecoveryQuestionsBtn" type="button" class="primary">Save Recovery Setup</button>
+      <button id="laterRecoveryQuestionsBtn" type="button" class="secondary">Set Up Later</button>
+    </div>
+
+    <div id="recoverySetupStatus" class="status"></div>
+  </div>
+</div>
+
+<div id="securityRecoveryModal" class="modal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="securityRecoveryTitle">
+  <div class="modal-card">
+    <h2 id="securityRecoveryTitle">Use Security Questions</h2>
+    <p class="small">Answer all 3 questions to create a new MyDocuKeep PIN.</p>
+
+    <div id="securityQuestion1Text" class="recovery-question"></div>
+    <input id="securityRecoveryAnswer1" autocomplete="off" maxlength="80" placeholder="Answer 1">
+
+    <div class="spacer"></div>
+
+    <div id="securityQuestion2Text" class="recovery-question"></div>
+    <input id="securityRecoveryAnswer2" autocomplete="off" maxlength="80" placeholder="Answer 2">
+
+    <div class="spacer"></div>
+
+    <div id="securityQuestion3Text" class="recovery-question"></div>
+    <input id="securityRecoveryAnswer3" autocomplete="off" maxlength="80" placeholder="Answer 3">
+
+    <div class="recovery-actions">
+      <button id="verifySecurityQuestionsBtn" type="button" class="primary">Verify Answers</button>
+      <button id="cancelSecurityRecoveryBtn" type="button" class="secondary">Cancel</button>
+    </div>
+
+    <div id="securityRecoveryStatus" class="status"></div>
+  </div>
+</div>
+
+<div id="resetForgottenPinModal" class="modal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="resetForgottenPinTitle">
+  <div class="modal-card">
+    <h2 id="resetForgottenPinTitle">Create a New PIN</h2>
+    <p class="small">
+      Your identity was verified. The old PIN will not be shown.
+    </p>
+
+    <label for="forgottenNewPin">New PIN</label>
+    <input id="forgottenNewPin" type="password" inputmode="numeric" maxlength="8" placeholder="4–8 digits">
+
+    <div class="spacer"></div>
+
+    <label for="forgottenConfirmPin">Confirm New PIN</label>
+    <input id="forgottenConfirmPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter it again">
+
+    <div class="recovery-actions">
+      <button id="saveForgottenNewPinBtn" type="button" class="primary">Save New PIN</button>
+      <button id="cancelForgottenPinBtn" type="button" class="secondary">Cancel</button>
+    </div>
+
+    <div id="forgottenPinStatus" class="status"></div>
+  </div>
+</div>
+
 <div id="walkthroughModal" class="modal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="walkthroughTitle">
   <div class="modal-card walkthrough-card">
     <div id="walkthroughGraphic" class="walkthrough-graphic">📷</div>
@@ -1412,14 +1546,14 @@ footer strong{color:var(--ink);letter-spacing:.03em}
 
 <script>
 const DB_NAME = 'docukeep_secure_v2';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
 const PENDING_STORE = 'pending';
 const MAX_IMAGE_SIDE = 1200;
 const JPEG_QUALITY = 0.72;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const MAX_FAILED_PINS = 5;
 const PIN_LOCKOUT_MS = 30 * 1000;
 
@@ -1435,6 +1569,10 @@ let pinLockoutUntil = 0;
 let corruptedRecordCount = 0;
 let trustedExternalInteractionUntil = 0;
 let backgroundLockTimer = null;
+let masterKeyRawB64 = null;
+let recoveredMasterKeyB64 = null;
+let recoveryFailedAttempts = 0;
+let recoveryLockoutUntil = 0;
 
 function bufToArray(buf){
   return Array.from(new Uint8Array(buf));
@@ -1578,6 +1716,49 @@ function trustedExternalInteractionActive(){
   return Date.now() < trustedExternalInteractionUntil;
 }
 
+async function unlockBackupKey(vault,backupPin){
+  if(isModernVault(vault)){
+    const rawMasterKeyB64 = await unwrapMasterKeyWithPin(backupPin,vault);
+    const key = await importMasterKey(base64ToBytes(rawMasterKeyB64));
+    await verifyMasterKey(key,vault);
+    return key;
+  }
+
+  if(Array.isArray(vault.salt) && vault.verifier){
+    const legacyKey = await deriveKey(backupPin,vault.salt);
+    const verifier = await decryptObject(vault.verifier,legacyKey);
+
+    if(!verifier || verifier.ok !== 'DOCUKEEP_OK'){
+      throw new Error('Incorrect backup PIN');
+    }
+
+    return legacyKey;
+  }
+
+  if(
+    Array.isArray(vault.salt) &&
+    Array.isArray(vault.verifierIv) &&
+    Array.isArray(vault.verifierCipher)
+  ){
+    const legacyKey = await deriveKey(backupPin,vault.salt);
+    const verifier = await decryptObject(
+      {
+        iv:vault.verifierIv,
+        cipher:vault.verifierCipher
+      },
+      legacyKey
+    );
+
+    if(!verifier || verifier.ok !== 'DOCUKEEP_OK'){
+      throw new Error('Incorrect backup PIN');
+    }
+
+    return legacyKey;
+  }
+
+  throw new Error('Invalid vault configuration');
+}
+
 async function verifyBackupCompletely(backup,backupPin){
   if(
     !backup ||
@@ -1589,30 +1770,11 @@ async function verifyBackupCompletely(backup,backupPin){
     throw new Error('Invalid backup structure');
   }
 
-  const vault = backup.config.vault;
+  let key;
 
-  if(
-    !Array.isArray(vault.salt) ||
-    !Array.isArray(vault.verifierIv) ||
-    !Array.isArray(vault.verifierCipher)
-  ){
-    throw new Error('Invalid vault configuration');
-  }
-
-  const key = await deriveKey(
-    backupPin,
-    new Uint8Array(vault.salt)
-  );
-
-  const verifier = await decryptObject(
-    {
-      iv:vault.verifierIv,
-      cipher:vault.verifierCipher
-    },
-    key
-  );
-
-  if(!verifier || verifier.ok !== 'DOCUKEEP_OK'){
+  try{
+    key = await unlockBackupKey(backup.config.vault,backupPin);
+  }catch(err){
     throw new Error('Incorrect backup PIN');
   }
 
@@ -1819,6 +1981,451 @@ async function saveBackupFile(filename,text){
   return 'downloaded';
 }
 
+
+function bytesToBase64(bytes){
+  let binary = '';
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+
+  for(let i=0;i<arr.length;i++){
+    binary += String.fromCharCode(arr[i]);
+  }
+
+  return btoa(binary);
+}
+
+function base64ToBytes(value){
+  const binary = atob(value);
+  const out = new Uint8Array(binary.length);
+
+  for(let i=0;i<binary.length;i++){
+    out[i] = binary.charCodeAt(i);
+  }
+
+  return out;
+}
+
+async function importMasterKey(rawBytes){
+  return crypto.subtle.importKey(
+    'raw',
+    rawBytes,
+    {name:'AES-GCM'},
+    true,
+    ['encrypt','decrypt']
+  );
+}
+
+async function exportMasterKeyB64(key){
+  const raw = await crypto.subtle.exportKey('raw',key);
+  return bytesToBase64(new Uint8Array(raw));
+}
+
+function isModernVault(vault){
+  return !!(
+    vault &&
+    Number(vault.version || 0) >= 2 &&
+    Array.isArray(vault.pinSalt) &&
+    vault.pinWrap &&
+    vault.verifier
+  );
+}
+
+async function createPinWrap(pin,rawMasterKeyB64){
+  const pinSalt = crypto.getRandomValues(new Uint8Array(16));
+  const pinKey = await deriveKey(pin,pinSalt);
+
+  const pinWrap = await encryptObject(
+    {
+      ok:'PIN_WRAP',
+      masterKey:rawMasterKeyB64
+    },
+    pinKey
+  );
+
+  return {
+    pinSalt:Array.from(pinSalt),
+    pinWrap
+  };
+}
+
+async function unwrapMasterKeyWithPin(pin,vault){
+  const pinKey = await deriveKey(pin,vault.pinSalt);
+  const wrapped = await decryptObject(vault.pinWrap,pinKey);
+
+  if(
+    !wrapped ||
+    wrapped.ok !== 'PIN_WRAP' ||
+    typeof wrapped.masterKey !== 'string'
+  ){
+    throw new Error('Invalid PIN');
+  }
+
+  return wrapped.masterKey;
+}
+
+async function verifyMasterKey(masterKey,vault){
+  const result = await decryptObject(vault.verifier,masterKey);
+
+  if(!result || result.ok !== 'DOCUKEEP_OK'){
+    throw new Error('Invalid vault key');
+  }
+
+  return true;
+}
+
+function normalizeRecoveryAnswer(value){
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu,' ')
+    .trim()
+    .replace(/\s+/g,' ');
+}
+
+async function deriveRecoveryKey(answers,saltArray){
+  const normalized = answers
+    .map(normalizeRecoveryAnswer)
+    .join('\u001f');
+
+  const bytes = new TextEncoder().encode(normalized);
+
+  const material = await crypto.subtle.importKey(
+    'raw',
+    bytes,
+    {name:'PBKDF2'},
+    false,
+    ['deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name:'PBKDF2',
+      salt:new Uint8Array(saltArray),
+      iterations:400000,
+      hash:'SHA-256'
+    },
+    material,
+    {
+      name:'AES-GCM',
+      length:256
+    },
+    false,
+    ['encrypt','decrypt']
+  );
+}
+
+function nativeBiometricBridge(){
+  return (
+    window.webkit &&
+    window.webkit.messageHandlers &&
+    window.webkit.messageHandlers.docukeepBiometric
+  ) || null;
+}
+
+function storeMasterKeyForFaceID(){
+  const bridge = nativeBiometricBridge();
+
+  if(!bridge || !masterKeyRawB64){
+    return;
+  }
+
+  try{
+    bridge.postMessage({
+      action:'store',
+      masterKey:masterKeyRawB64
+    });
+  }catch(err){}
+}
+
+async function saveRecoveryQuestions(){
+  const answers = [
+    document.getElementById('recoveryAnswer1').value,
+    document.getElementById('recoveryAnswer2').value,
+    document.getElementById('recoveryAnswer3').value
+  ];
+
+  const status = document.getElementById('recoverySetupStatus');
+
+  if(answers.some(a=>normalizeRecoveryAnswer(a).length < 2)){
+    status.textContent = 'Please enter an answer for all 3 questions.';
+    return false;
+  }
+
+  if(!masterKeyRawB64){
+    status.textContent = 'Unlock MyDocuKeep first, then try again.';
+    return false;
+  }
+
+  const vault = await idbGet(CONFIG_STORE,'vault');
+
+  if(!isModernVault(vault)){
+    status.textContent = 'PIN recovery cannot be set up until the vault is upgraded.';
+    return false;
+  }
+
+  const recoverySalt = crypto.getRandomValues(new Uint8Array(16));
+  const recoveryKey = await deriveRecoveryKey(answers,recoverySalt);
+
+  const recoveryWrap = await encryptObject(
+    {
+      ok:'RECOVERY_WRAP',
+      masterKey:masterKeyRawB64
+    },
+    recoveryKey
+  );
+
+  const updated = {
+    ...vault,
+    recoveryVersion:1,
+    recoveryQuestions:[
+      'What nickname did you use for a favorite childhood toy or object?',
+      'What was a special name your family used for a place?',
+      'What private word or phrase will you remember years from now?'
+    ],
+    recoverySalt:Array.from(recoverySalt),
+    recoveryWrap
+  };
+
+  await idbPut(CONFIG_STORE,updated);
+
+  document.getElementById('recoveryAnswer1').value = '';
+  document.getElementById('recoveryAnswer2').value = '';
+  document.getElementById('recoveryAnswer3').value = '';
+  status.textContent = 'PIN recovery is ready.';
+
+  setTimeout(()=>{
+    document.getElementById('recoverySetupModal').classList.remove('open');
+    maybeShowWalkthrough();
+  },500);
+
+  return true;
+}
+
+async function maybeOfferRecoverySetup(){
+  try{
+    const vault = await idbGet(CONFIG_STORE,'vault');
+
+    if(
+      isModernVault(vault) &&
+      !vault.recoveryWrap &&
+      !document.getElementById('recoverySetupModal').classList.contains('open')
+    ){
+      setTimeout(()=>{
+        document.getElementById('recoverySetupStatus').textContent = '';
+        document.getElementById('recoverySetupModal').classList.add('open');
+      },450);
+    }
+  }catch(err){}
+}
+
+async function openSecurityRecovery(){
+  const vault = await idbGet(CONFIG_STORE,'vault');
+  const status = document.getElementById('unlockStatus');
+
+  if(!isModernVault(vault) || !vault.recoveryWrap || !Array.isArray(vault.recoveryQuestions)){
+    status.textContent =
+      'Security questions are not set up for this vault. Unlock once with your current PIN to finish recovery setup.';
+    return;
+  }
+
+  document.getElementById('securityQuestion1Text').textContent = vault.recoveryQuestions[0] || 'Question 1';
+  document.getElementById('securityQuestion2Text').textContent = vault.recoveryQuestions[1] || 'Question 2';
+  document.getElementById('securityQuestion3Text').textContent = vault.recoveryQuestions[2] || 'Question 3';
+
+  document.getElementById('securityRecoveryAnswer1').value = '';
+  document.getElementById('securityRecoveryAnswer2').value = '';
+  document.getElementById('securityRecoveryAnswer3').value = '';
+  document.getElementById('securityRecoveryStatus').textContent = '';
+
+  document.getElementById('securityRecoveryModal').classList.add('open');
+}
+
+async function verifySecurityRecoveryAnswers(){
+  const status = document.getElementById('securityRecoveryStatus');
+
+  if(Date.now() < recoveryLockoutUntil){
+    const seconds = Math.ceil((recoveryLockoutUntil-Date.now())/1000);
+    status.textContent = `Too many incorrect attempts. Try again in ${seconds} seconds.`;
+    return;
+  }
+
+  const vault = await idbGet(CONFIG_STORE,'vault');
+
+  if(!isModernVault(vault) || !vault.recoveryWrap){
+    status.textContent = 'Security-question recovery is not available.';
+    return;
+  }
+
+  const answers = [
+    document.getElementById('securityRecoveryAnswer1').value,
+    document.getElementById('securityRecoveryAnswer2').value,
+    document.getElementById('securityRecoveryAnswer3').value
+  ];
+
+  if(answers.some(a=>normalizeRecoveryAnswer(a).length < 1)){
+    status.textContent = 'Please answer all 3 questions.';
+    return;
+  }
+
+  try{
+    const recoveryKey = await deriveRecoveryKey(
+      answers,
+      vault.recoverySalt
+    );
+
+    const wrapped = await decryptObject(vault.recoveryWrap,recoveryKey);
+
+    if(
+      !wrapped ||
+      wrapped.ok !== 'RECOVERY_WRAP' ||
+      typeof wrapped.masterKey !== 'string'
+    ){
+      throw new Error('Incorrect answers');
+    }
+
+    const masterKey = await importMasterKey(base64ToBytes(wrapped.masterKey));
+    await verifyMasterKey(masterKey,vault);
+
+    recoveryFailedAttempts = 0;
+    recoveryLockoutUntil = 0;
+
+    document.getElementById('securityRecoveryModal').classList.remove('open');
+    openForgottenPinReset(wrapped.masterKey,'Security questions');
+
+  }catch(err){
+    recoveryFailedAttempts += 1;
+
+    if(recoveryFailedAttempts >= 5){
+      recoveryFailedAttempts = 0;
+      recoveryLockoutUntil = Date.now() + 60*1000;
+      status.textContent = 'Too many incorrect attempts. Try again in 60 seconds.';
+    }else{
+      status.textContent =
+        `Those answers did not match. ${5-recoveryFailedAttempts} attempt(s) before a short delay.`;
+    }
+  }
+}
+
+function openForgottenPinReset(rawMasterKeyB64,method){
+  recoveredMasterKeyB64 = rawMasterKeyB64;
+
+  document.getElementById('forgottenNewPin').value = '';
+  document.getElementById('forgottenConfirmPin').value = '';
+  document.getElementById('forgottenPinStatus').textContent =
+    `${method} verified. Create a new PIN.`;
+
+  document.getElementById('resetForgottenPinModal').classList.add('open');
+}
+
+async function saveForgottenNewPin(){
+  const pin = document.getElementById('forgottenNewPin').value.trim();
+  const confirmPin = document.getElementById('forgottenConfirmPin').value.trim();
+  const status = document.getElementById('forgottenPinStatus');
+
+  if(!/^\d{4,8}$/.test(pin)){
+    status.textContent = 'Use a 4–8 digit PIN.';
+    return;
+  }
+
+  if(pin !== confirmPin){
+    status.textContent = 'The two PIN entries do not match.';
+    return;
+  }
+
+  if(!recoveredMasterKeyB64){
+    status.textContent = 'Recovery authorization expired. Start again.';
+    return;
+  }
+
+  try{
+    const vault = await idbGet(CONFIG_STORE,'vault');
+    const masterKey = await importMasterKey(base64ToBytes(recoveredMasterKeyB64));
+    await verifyMasterKey(masterKey,vault);
+
+    const wrap = await createPinWrap(pin,recoveredMasterKeyB64);
+
+    const updated = {
+      ...vault,
+      version:2,
+      pinSalt:wrap.pinSalt,
+      pinWrap:wrap.pinWrap
+    };
+
+    await idbPut(CONFIG_STORE,updated);
+
+    cryptoKey = masterKey;
+    masterKeyRawB64 = recoveredMasterKeyB64;
+    recoveredMasterKeyB64 = null;
+
+    failedPinAttempts = 0;
+    pinLockoutUntil = 0;
+
+    storeMasterKeyForFaceID();
+
+    await idbPut(CONFIG_STORE,{
+      id:'backup_meta',
+      lastBackupAt:0,
+      pinChangedAt:Date.now()
+    });
+
+    await loadDocuments();
+
+    document.getElementById('resetForgottenPinModal').classList.remove('open');
+    document.getElementById('unlockPin').value = '';
+    document.getElementById('unlockStatus').textContent = '';
+
+    await showUnlockedApp();
+
+  }catch(err){
+    status.textContent = 'Could not create the new PIN. Your vault was not changed.';
+  }
+}
+
+async function startForgotPinRecovery(){
+  const status = document.getElementById('unlockStatus');
+  const vault = await idbGet(CONFIG_STORE,'vault');
+
+  if(!isModernVault(vault)){
+    status.textContent =
+      'This existing vault must be unlocked once with its current PIN before Face ID recovery can be enabled.';
+    return;
+  }
+
+  const bridge = nativeBiometricBridge();
+
+  if(bridge){
+    status.textContent = 'Use Face ID to reset your MyDocuKeep PIN.';
+
+    try{
+      bridge.postMessage({action:'recover'});
+      return;
+    }catch(err){}
+  }
+
+  status.textContent = 'Face ID is not available. Use your 3 security questions.';
+  await openSecurityRecovery();
+}
+
+window.docukeepNativeBiometricRecovery = async function(rawMasterKeyB64){
+  try{
+    const vault = await idbGet(CONFIG_STORE,'vault');
+    const key = await importMasterKey(base64ToBytes(rawMasterKeyB64));
+    await verifyMasterKey(key,vault);
+
+    document.getElementById('unlockStatus').textContent = '';
+    openForgottenPinReset(rawMasterKeyB64,'Face ID');
+
+  }catch(err){
+    window.docukeepNativeBiometricRecoveryFailed('invalid-key');
+  }
+};
+
+window.docukeepNativeBiometricRecoveryFailed = async function(reason){
+  document.getElementById('unlockStatus').textContent =
+    'Face ID could not verify you. Use your 3 security questions instead.';
+
+  await openSecurityRecovery();
+};
+
 async function deriveKey(pin,saltArray){
   const pinBytes = new TextEncoder().encode(pin);
 
@@ -1898,27 +2505,81 @@ async function createVault(){
   }
 
   try{
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const key = await deriveKey(pin,salt);
-    const verifier = await encryptObject({ok:'DOCUKEEP_OK'},key);
+    const rawMaster = crypto.getRandomValues(new Uint8Array(32));
+    const rawMasterB64 = bytesToBase64(rawMaster);
+    const masterKey = await importMasterKey(rawMaster);
+
+    const pinWrap = await createPinWrap(pin,rawMasterB64);
+    const verifier = await encryptObject({ok:'DOCUKEEP_OK'},masterKey);
 
     await idbPut(CONFIG_STORE,{
       id:'vault',
-      salt:Array.from(salt),
+      version:2,
+      pinSalt:pinWrap.pinSalt,
+      pinWrap:pinWrap.pinWrap,
       verifier
     });
 
-    cryptoKey = key;
+    cryptoKey = masterKey;
+    masterKeyRawB64 = rawMasterB64;
     documents = [];
+
+    storeMasterKeyForFaceID();
 
     document.getElementById('newPin').value = '';
     document.getElementById('confirmPin').value = '';
     status.textContent = '';
 
-    showUnlockedApp();
+    await showUnlockedApp();
+
   }catch(err){
     status.textContent = 'Could not create the secure vault in this browser.';
   }
+}
+
+async function migrateLegacyVault(pin,legacyConfig,legacyKey){
+  const rows = await idbGetAll(DOC_STORE);
+  const plainDocs = [];
+
+  for(const row of rows){
+    plainDocs.push(await decryptObject(row,legacyKey));
+  }
+
+  const rawMaster = crypto.getRandomValues(new Uint8Array(32));
+  const rawMasterB64 = bytesToBase64(rawMaster);
+  const masterKey = await importMasterKey(rawMaster);
+  const pinWrap = await createPinWrap(pin,rawMasterB64);
+  const verifier = await encryptObject({ok:'DOCUKEEP_OK'},masterKey);
+
+  const newRows = [];
+
+  for(const doc of plainDocs){
+    const encrypted = await encryptObject(doc,masterKey);
+
+    newRows.push({
+      id:doc.id,
+      iv:encrypted.iv,
+      cipher:encrypted.cipher
+    });
+  }
+
+  const newVault = {
+    id:'vault',
+    version:2,
+    pinSalt:pinWrap.pinSalt,
+    pinWrap:pinWrap.pinWrap,
+    verifier
+  };
+
+  await migrateVaultAtomically(newVault,newRows);
+
+  cryptoKey = masterKey;
+  masterKeyRawB64 = rawMasterB64;
+  documents = plainDocs.sort((a,b)=>b.id-a.id);
+
+  storeMasterKeyForFaceID();
+
+  return masterKey;
 }
 
 async function unlockApp(){
@@ -1939,22 +2600,36 @@ async function unlockApp(){
   }
 
   try{
-    const key = await deriveKey(pin,config.salt);
-    const result = await decryptObject(config.verifier,key);
+    if(isModernVault(config)){
+      const rawMasterB64 = await unwrapMasterKeyWithPin(pin,config);
+      const key = await importMasterKey(base64ToBytes(rawMasterB64));
+      await verifyMasterKey(key,config);
 
-    if(result.ok !== 'DOCUKEEP_OK'){
-      throw new Error('Invalid PIN');
+      cryptoKey = key;
+      masterKeyRawB64 = rawMasterB64;
+
+      storeMasterKeyForFaceID();
+
+      await loadDocuments();
+
+    }else{
+      const legacyKey = await deriveKey(pin,config.salt);
+      const result = await decryptObject(config.verifier,legacyKey);
+
+      if(!result || result.ok !== 'DOCUKEEP_OK'){
+        throw new Error('Invalid PIN');
+      }
+
+      await migrateLegacyVault(pin,config,legacyKey);
     }
 
-    cryptoKey = key;
     failedPinAttempts = 0;
     pinLockoutUntil = 0;
 
     document.getElementById('unlockPin').value = '';
     status.textContent = '';
 
-    await loadDocuments();
-    showUnlockedApp();
+    await showUnlockedApp();
 
   }catch(err){
     failedPinAttempts += 1;
@@ -2064,47 +2739,57 @@ function replaceEncryptionAtomically(vaultConfig,rows){
   });
 }
 
+function migrateVaultAtomically(vaultConfig,rows){
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(
+      [CONFIG_STORE,DOC_STORE,PENDING_STORE],
+      'readwrite'
+    );
+
+    const configStore = tx.objectStore(CONFIG_STORE);
+    const docStore = tx.objectStore(DOC_STORE);
+    const pendingStore = tx.objectStore(PENDING_STORE);
+
+    // Preserve unrelated config records (schema, walkthrough, backup metadata).
+    configStore.put(vaultConfig);
+    docStore.clear();
+    pendingStore.clear();
+
+    for(const row of rows){
+      docStore.put(row);
+    }
+
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+    tx.onabort = ()=>reject(tx.error || new Error('Vault migration transaction aborted'));
+  });
+}
+
 async function changeVaultPin(currentPin,newPin){
   const config = await idbGet(CONFIG_STORE,'vault');
 
-  if(!config){
-    throw new Error('Vault configuration missing');
+  if(!isModernVault(config)){
+    throw new Error('Vault upgrade required');
   }
 
-  const currentKey = await deriveKey(currentPin,config.salt);
-  const result = await decryptObject(config.verifier,currentKey);
+  const rawMasterB64 = await unwrapMasterKeyWithPin(currentPin,config);
+  const masterKey = await importMasterKey(base64ToBytes(rawMasterB64));
+  await verifyMasterKey(masterKey,config);
 
-  if(!result || result.ok !== 'DOCUKEEP_OK'){
-    throw new Error('Incorrect current PIN');
-  }
+  const pinWrap = await createPinWrap(newPin,rawMasterB64);
 
-  const newSalt = crypto.getRandomValues(new Uint8Array(16));
-  const newKey = await deriveKey(newPin,newSalt);
-  const newVerifier = await encryptObject({ok:'DOCUKEEP_OK'},newKey);
+  await idbPut(CONFIG_STORE,{
+    ...config,
+    version:2,
+    pinSalt:pinWrap.pinSalt,
+    pinWrap:pinWrap.pinWrap
+  });
 
-  const rows = [];
+  cryptoKey = masterKey;
+  masterKeyRawB64 = rawMasterB64;
 
-  for(const doc of documents){
-    const encrypted = await encryptObject(doc,newKey);
-    rows.push({
-      id:doc.id,
-      iv:encrypted.iv,
-      cipher:encrypted.cipher
-    });
-  }
+  storeMasterKeyForFaceID();
 
-  await replaceEncryptionAtomically(
-    {
-      id:'vault',
-      salt:Array.from(newSalt),
-      verifier:newVerifier
-    },
-    rows
-  );
-
-  cryptoKey = newKey;
-
-  // A new backup is recommended because the live vault now uses a new PIN.
   await idbPut(CONFIG_STORE,{
     id:'backup_meta',
     lastBackupAt:0,
@@ -2126,6 +2811,8 @@ function showLocked(){
   clearTimeout(inactivityTimer);
 
   cryptoKey = null;
+  masterKeyRawB64 = null;
+  recoveredMasterKeyB64 = null;
   documents = [];
   workingPages = [];
   currentDocId = null;
@@ -2146,7 +2833,18 @@ async function showUnlockedApp(){
   await requestPersistentStorage();
   updateStorageStatus();
   updateBackupReminder();
-  maybeShowWalkthrough();
+
+  try{
+    const vault = await idbGet(CONFIG_STORE,'vault');
+
+    if(isModernVault(vault) && !vault.recoveryWrap){
+      maybeOfferRecoverySetup();
+    }else{
+      maybeShowWalkthrough();
+    }
+  }catch(err){
+    maybeShowWalkthrough();
+  }
 }
 
 function resetInactivity(){
@@ -2298,6 +2996,28 @@ document.querySelectorAll('[data-go]').forEach(b=>{
 
 document.getElementById('createVaultBtn').addEventListener('click',createVault);
 document.getElementById('unlockAppBtn').addEventListener('click',unlockApp);
+document.getElementById('forgotPinBtn').addEventListener('click',startForgotPinRecovery);
+
+document.getElementById('saveRecoveryQuestionsBtn').addEventListener('click',saveRecoveryQuestions);
+
+document.getElementById('laterRecoveryQuestionsBtn').addEventListener('click',()=>{
+  document.getElementById('recoverySetupModal').classList.remove('open');
+  maybeShowWalkthrough();
+});
+
+document.getElementById('verifySecurityQuestionsBtn').addEventListener('click',verifySecurityRecoveryAnswers);
+
+document.getElementById('cancelSecurityRecoveryBtn').addEventListener('click',()=>{
+  document.getElementById('securityRecoveryModal').classList.remove('open');
+});
+
+document.getElementById('saveForgottenNewPinBtn').addEventListener('click',saveForgottenNewPin);
+
+document.getElementById('cancelForgottenPinBtn').addEventListener('click',()=>{
+  recoveredMasterKeyB64 = null;
+  document.getElementById('resetForgottenPinModal').classList.remove('open');
+});
+
 document.getElementById('lockNowBtn').addEventListener('click',showLocked);
 
 document.querySelectorAll('input[type="file"]').forEach(input=>{
@@ -2338,6 +3058,14 @@ document.getElementById('openChangePinBtn').addEventListener('click',()=>{
   document.getElementById('changePinModal').classList.add('open');
 });
 
+document.getElementById('openRecoverySetupBtn').addEventListener('click',()=>{
+  document.getElementById('recoveryAnswer1').value = '';
+  document.getElementById('recoveryAnswer2').value = '';
+  document.getElementById('recoveryAnswer3').value = '';
+  document.getElementById('recoverySetupStatus').textContent = '';
+  document.getElementById('recoverySetupModal').classList.add('open');
+});
+
 document.getElementById('cancelChangePinBtn').addEventListener('click',()=>{
   document.getElementById('changePinModal').classList.remove('open');
 });
@@ -2370,7 +3098,7 @@ document.getElementById('saveNewPinBtn').addEventListener('click',async()=>{
   }
 
   button.disabled = true;
-  status.textContent = 'Safely re-encrypting your vault...';
+  status.textContent = 'Updating PIN protection...';
 
   try{
     await changeVaultPin(currentPin,newPin);

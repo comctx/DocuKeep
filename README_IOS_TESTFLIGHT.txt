@@ -65,3 +65,35 @@ Benefits:
 
 Upload this updated project to GitHub and run a new CodeMagic build.
 The next TestFlight build will receive a new build number automatically.
+
+
+PIN RECOVERY - v3
+-----------------
+MyDocuKeep now keeps normal access PIN-first.
+
+Forgot PIN flow:
+1. Tap Forgot PIN?
+2. Face ID verifies the device owner.
+3. MyDocuKeep lets the user create a new 4–8 digit app PIN.
+4. The old PIN is never displayed.
+
+Fallback:
+- If Face ID is unavailable or fails, the user can answer all 3 locally configured security questions.
+- Correct answers unlock the same encrypted vault key and allow a new PIN.
+- Five wrong answer attempts trigger a short delay.
+
+Encryption architecture:
+- Documents are encrypted by a random 256-bit AES-GCM master vault key.
+- The app PIN protects a wrapped copy of that master key.
+- Security-question recovery protects a separate wrapped copy of the same master key.
+- Face ID protects a device-only Keychain copy of the master key using the current biometric enrollment.
+- Changing the PIN no longer requires re-encrypting every document.
+- Existing PIN-encrypted vaults migrate automatically after one successful unlock with the current PIN.
+
+IMPORTANT FOR EXISTING TEST VAULTS
+----------------------------------
+After installing this build, unlock the existing vault once with the current PIN.
+That one successful unlock upgrades the vault, enables Face ID recovery on that iPhone,
+and offers setup of the 3 security questions.
+
+Older encrypted backup files remain restorable with the PIN that was used when each backup was created.

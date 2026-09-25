@@ -64,5 +64,7 @@
 	<string>UIStatusBarStyleLightContent</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>MyDocuKeep uses Face ID only to verify you when you need to reset a forgotten app PIN.</string>
 </dict>
 </plist>

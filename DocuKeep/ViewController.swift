@@ -1,6 +1,8 @@
 import UIKit
 import WebKit
 import VisionKit
+import LocalAuthentication
+import Security
 
 final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     private var webView: WKWebView!
@@ -17,6 +19,9 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     }
 
     private var pendingFiles: [String: FileAccumulator] = [:]
+    private let biometricService = "com.donaldreckman.docukeep.recovery"
+    private let biometricAccount = "vault-master-key"
+
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,6 +32,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.userContentController.add(self, name: "docukeepFile")
         configuration.userContentController.add(self, name: "docukeepCamera")
+        configuration.userContentController.add(self, name: "docukeepBiometric")
 
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -63,6 +69,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepFile")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepCamera")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepBiometric")
     }
 
     private func showFatalError(_ message: String) {
@@ -83,6 +90,11 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     // MARK: - Native file sharing bridge
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "docukeepBiometric" {
+            handleBiometricMessage(message)
+            return
+        }
+
         if message.name == "docukeepCamera" {
             guard let body = message.body as? [String: Any],
                   let action = body["action"] as? String,
@@ -115,6 +127,124 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
 
         default:
             break
+        }
+    }
+
+    // MARK: - Face ID PIN recovery
+
+    private func handleBiometricMessage(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let action = body["action"] as? String else { return }
+
+        switch action {
+        case "store":
+            guard let masterKey = body["masterKey"] as? String else { return }
+            storeBiometricMasterKey(masterKey)
+
+        case "recover":
+            recoverBiometricMasterKey()
+
+        default:
+            break
+        }
+    }
+
+    private func biometricBaseQuery() -> [String: Any] {
+        return [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: biometricService,
+            kSecAttrAccount as String: biometricAccount
+        ]
+    }
+
+    private func storeBiometricMasterKey(_ base64: String) {
+        guard let data = Data(base64Encoded: base64) else { return }
+
+        var accessError: Unmanaged<CFError>?
+
+        guard let access = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            .biometryCurrentSet,
+            &accessError
+        ) else {
+            return
+        }
+
+        SecItemDelete(biometricBaseQuery() as CFDictionary)
+
+        var add = biometricBaseQuery()
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessControl as String] = access
+
+        _ = SecItemAdd(add as CFDictionary, nil)
+    }
+
+    private func recoverBiometricMasterKey() {
+        let context = LAContext()
+        context.localizedCancelTitle = "Use Security Questions"
+
+        var policyError: NSError?
+
+        guard context.canEvaluatePolicy(
+            .deviceOwnerAuthenticationWithBiometrics,
+            error: &policyError
+        ) else {
+            notifyBiometricRecoveryFailure("unavailable")
+            return
+        }
+
+        var query = biometricBaseQuery()
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        query[kSecUseAuthenticationContext as String] = context
+        query[kSecUseOperationPrompt as String] =
+            "Use Face ID to create a new MyDocuKeep PIN."
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+            if status == errSecSuccess,
+               let data = result as? Data {
+                self?.notifyBiometricRecoverySuccess(data)
+            } else {
+                self?.notifyBiometricRecoveryFailure("failed")
+            }
+        }
+    }
+
+    private func notifyBiometricRecoverySuccess(_ data: Data) {
+        let value = data.base64EncodedString()
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: [value]),
+              let jsonArray = String(data: jsonData, encoding: .utf8),
+              jsonArray.count >= 2 else { return }
+
+        let quoted = String(jsonArray.dropFirst().dropLast())
+
+        let js = """
+        window.docukeepNativeBiometricRecovery &&
+        window.docukeepNativeBiometricRecovery(\(quoted));
+        """
+
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.evaluateJavaScript(js)
+        }
+    }
+
+    private func notifyBiometricRecoveryFailure(_ reason: String) {
+        let safe = reason
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        let js = """
+        window.docukeepNativeBiometricRecoveryFailed &&
+        window.docukeepNativeBiometricRecoveryFailed("\(safe)");
+        """
+
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.evaluateJavaScript(js)
         }
     }
 
