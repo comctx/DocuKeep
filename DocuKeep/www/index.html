@@ -1134,8 +1134,8 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     <div class="photo-actions">
       <button id="openCameraBtn" type="button" class="fake-file">
         <span class="ico">📷</span>
-        <strong>Take Photo</strong><br>
-        <span class="small">Open camera directly</span>
+        <strong>Scan Document</strong><br>
+        <span class="small">Auto-crop document pages</span>
       </button>
       <input id="cameraFallbackInput" type="file" accept="image/*" capture="environment" style="display:none">
 
@@ -2897,6 +2897,69 @@ function renderWorkingPages(){
   );
 });
 
+
+window.docukeepNativeAddPage = async function(dataUrl,pageNumber,totalPages){
+  try{
+    const hash = await pageFingerprint(dataUrl);
+
+    if(workingPages.some(p=>p.hash===hash)){
+      document.getElementById('pageStatus').textContent =
+        'A duplicate scanned page was skipped.';
+      return;
+    }
+
+    workingPages.push({
+      label:'',
+      data:dataUrl,
+      hash,
+      enhanced:true
+    });
+
+    relabelWorkingPages();
+    renderWorkingPages();
+
+    document.getElementById('pageStatus').textContent =
+      `Scanned page ${pageNumber} of ${totalPages}.`;
+  }catch(err){
+    document.getElementById('pageStatus').textContent =
+      'One scanned page could not be added.';
+  }
+};
+
+window.docukeepNativeScanFinished = function(totalPages){
+  relabelWorkingPages();
+  renderWorkingPages();
+
+  document.getElementById('pageStatus').textContent =
+    `${totalPages} scanned page${totalPages===1?'':'s'} ready to save.`;
+
+  trustedExternalInteractionUntil = 0;
+  resetInactivity();
+};
+
+window.docukeepNativeScanCancelled = function(){
+  document.getElementById('pageStatus').textContent =
+    'Document scan cancelled.';
+
+  trustedExternalInteractionUntil = 0;
+  resetInactivity();
+};
+
+window.docukeepNativeScanFailed = function(message){
+  document.getElementById('pageStatus').textContent =
+    'The document scanner could not open.';
+
+  trustedExternalInteractionUntil = 0;
+  resetInactivity();
+};
+
+window.docukeepNativeScannerUnavailable = function(){
+  document.getElementById('pageStatus').textContent =
+    'Native document scanning is unavailable on this device.';
+
+  document.getElementById('cameraFallbackInput').click();
+};
+
 let cameraStream = null;
 
 function stopCamera(){
@@ -2911,6 +2974,20 @@ function stopCamera(){
 async function openCamera(){
   const status = document.getElementById('cameraStatus');
   status.textContent = '';
+
+  const nativeScanner =
+    window.webkit &&
+    window.webkit.messageHandlers &&
+    window.webkit.messageHandlers.docukeepCamera;
+
+  if(nativeScanner){
+    markTrustedExternalInteraction(180000);
+    document.getElementById('pageStatus').textContent =
+      'Opening document scanner...';
+
+    nativeScanner.postMessage({action:'scan'});
+    return;
+  }
 
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     document.getElementById('cameraFallbackInput').click();

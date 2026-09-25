@@ -4,13 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173f35">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="DocuKeep">
-<meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" href="./icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <title>DocuKeep</title>
 <style>
 :root{
@@ -941,6 +934,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   .viewer-page img{max-height:none;width:100%;object-fit:contain}
 }
 </style>
+<script>window.DOCUKEEP_NATIVE_IOS = true;</script>
 </head>
 <body>
 <div id="launchSplash" class="launch-splash" aria-hidden="true">
@@ -1036,14 +1030,6 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     ＋ Add Document
   </button>
 
-  <div id="installAppCard" class="install-card no-print" hidden>
-    <img src="./icons/icon-192.png" alt="">
-    <div class="install-copy">
-      <strong>Install DocuKeep</strong>
-      <span id="installAppText">Open DocuKeep from your home screen like an app.</span>
-    </div>
-    <button id="installAppBtn" type="button">Install</button>
-  </div>
 
   <div class="home-quick-grid no-print">
     <button class="home-quick" type="button" data-go="docs">
@@ -1148,8 +1134,8 @@ footer strong{color:var(--ink);letter-spacing:.03em}
     <div class="photo-actions">
       <button id="openCameraBtn" type="button" class="fake-file">
         <span class="ico">📷</span>
-        <strong>Take Photo</strong><br>
-        <span class="small">Open camera directly</span>
+        <strong>Scan Document</strong><br>
+        <span class="small">Auto-crop document pages</span>
       </button>
       <input id="cameraFallbackInput" type="file" accept="image/*" capture="environment" style="display:none">
 
@@ -1729,6 +1715,55 @@ async function ensureDocDerivedData(doc){
   return changed;
 }
 
+
+function hasDocuKeepNativeFileBridge(){
+  return !!(
+    window.webkit &&
+    window.webkit.messageHandlers &&
+    window.webkit.messageHandlers.docukeepFile
+  );
+}
+
+async function nativeShareBlob(blob,filename,mimeType){
+  if(!hasDocuKeepNativeFileBridge()) return false;
+
+  const dataUrl = await new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(String(reader.result || ''));
+    reader.onerror = ()=>reject(reader.error || new Error('Could not read file'));
+    reader.readAsDataURL(blob);
+  });
+
+  const comma = dataUrl.indexOf(',');
+  if(comma < 0) throw new Error('Could not prepare file');
+
+  const base64 = dataUrl.slice(comma+1);
+  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  const handler = window.webkit.messageHandlers.docukeepFile;
+
+  markTrustedExternalInteraction(120000);
+
+  handler.postMessage({
+    action:'begin',
+    id,
+    filename,
+    mime:mimeType || blob.type || 'application/octet-stream'
+  });
+
+  // Keep chunks small enough for a reliable WKWebView message bridge.
+  const chunkSize = 240000; // divisible by 4 for Base64 chunks
+  for(let i=0;i<base64.length;i+=chunkSize){
+    handler.postMessage({
+      action:'chunk',
+      id,
+      data:base64.slice(i,i+chunkSize)
+    });
+  }
+
+  handler.postMessage({action:'finish',id});
+  return true;
+}
+
 async function saveBackupFile(filename,text){
   const blob = new Blob(
     [text],
@@ -1740,6 +1775,10 @@ async function saveBackupFile(filename,text){
     filename,
     {type:'application/octet-stream'}
   );
+
+  if(await nativeShareBlob(blob,filename,'application/octet-stream')){
+    return 'shared';
+  }
 
   const isiPhoneOrIPad =
     /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -2858,6 +2897,69 @@ function renderWorkingPages(){
   );
 });
 
+
+window.docukeepNativeAddPage = async function(dataUrl,pageNumber,totalPages){
+  try{
+    const hash = await pageFingerprint(dataUrl);
+
+    if(workingPages.some(p=>p.hash===hash)){
+      document.getElementById('pageStatus').textContent =
+        'A duplicate scanned page was skipped.';
+      return;
+    }
+
+    workingPages.push({
+      label:'',
+      data:dataUrl,
+      hash,
+      enhanced:true
+    });
+
+    relabelWorkingPages();
+    renderWorkingPages();
+
+    document.getElementById('pageStatus').textContent =
+      `Scanned page ${pageNumber} of ${totalPages}.`;
+  }catch(err){
+    document.getElementById('pageStatus').textContent =
+      'One scanned page could not be added.';
+  }
+};
+
+window.docukeepNativeScanFinished = function(totalPages){
+  relabelWorkingPages();
+  renderWorkingPages();
+
+  document.getElementById('pageStatus').textContent =
+    `${totalPages} scanned page${totalPages===1?'':'s'} ready to save.`;
+
+  trustedExternalInteractionUntil = 0;
+  resetInactivity();
+};
+
+window.docukeepNativeScanCancelled = function(){
+  document.getElementById('pageStatus').textContent =
+    'Document scan cancelled.';
+
+  trustedExternalInteractionUntil = 0;
+  resetInactivity();
+};
+
+window.docukeepNativeScanFailed = function(message){
+  document.getElementById('pageStatus').textContent =
+    'The document scanner could not open.';
+
+  trustedExternalInteractionUntil = 0;
+  resetInactivity();
+};
+
+window.docukeepNativeScannerUnavailable = function(){
+  document.getElementById('pageStatus').textContent =
+    'Native document scanning is unavailable on this device.';
+
+  document.getElementById('cameraFallbackInput').click();
+};
+
 let cameraStream = null;
 
 function stopCamera(){
@@ -2872,6 +2974,20 @@ function stopCamera(){
 async function openCamera(){
   const status = document.getElementById('cameraStatus');
   status.textContent = '';
+
+  const nativeScanner =
+    window.webkit &&
+    window.webkit.messageHandlers &&
+    window.webkit.messageHandlers.docukeepCamera;
+
+  if(nativeScanner){
+    markTrustedExternalInteraction(180000);
+    document.getElementById('pageStatus').textContent =
+      'Opening document scanner...';
+
+    nativeScanner.postMessage({action:'scan'});
+    return;
+  }
 
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     document.getElementById('cameraFallbackInput').click();
@@ -3981,6 +4097,11 @@ function downloadBlob(filename,blob){
 async function savePdfForUser(doc,blob){
   const filename = safePdfFilename(doc.name);
   const file = new File([blob],filename,{type:'application/pdf'});
+
+  if(await nativeShareBlob(blob,filename,'application/pdf')){
+    return 'shared';
+  }
+
   const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if(
@@ -4056,7 +4177,9 @@ document.getElementById('shareBtn')
         {type:'application/pdf'}
       );
 
-      if(
+      if(await nativeShareBlob(blob,file.name,'application/pdf')){
+        status.textContent = 'PDF share sheet opened.';
+      }else if(
         navigator.share &&
         navigator.canShare &&
         navigator.canShare({files:[file]})
@@ -4166,112 +4289,17 @@ document.getElementById('deleteDoc')
   });
 
 
-let deferredInstallPrompt = null;
-
-function isStandaloneApp(){
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
-  );
-}
-
-function updateInstallCard(){
-  const card = document.getElementById('installAppCard');
-  const button = document.getElementById('installAppBtn');
-  const text = document.getElementById('installAppText');
-
-  if(!card || !button || !text) return;
-
-  if(isStandaloneApp()){
-    card.hidden = true;
-    return;
-  }
-
-  if(location.protocol === 'file:'){
-    text.textContent =
-      'Install becomes available after the complete DocuKeep package is published on GitHub Pages.';
-    button.textContent = 'After Upload';
-    button.disabled = true;
-    card.hidden = false;
-    return;
-  }
-
-  button.disabled = false;
-
-  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  if(deferredInstallPrompt){
-    text.textContent =
-      'Open DocuKeep from your home screen like an app.';
-    button.textContent = 'Install';
-    card.hidden = false;
-    return;
-  }
-
-  if(isiOS){
-    text.textContent =
-      'On iPhone, add DocuKeep to your Home Screen from Safari.';
-    button.textContent = 'How';
-    card.hidden = false;
-    return;
-  }
-
-  card.hidden = true;
-}
-
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  updateInstallCard();
-});
-
-window.addEventListener('appinstalled',()=>{
-  deferredInstallPrompt = null;
-  updateInstallCard();
-});
-
-document.getElementById('installAppBtn')?.addEventListener('click',async()=>{
-  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  if(deferredInstallPrompt){
-    deferredInstallPrompt.prompt();
-
-    try{
-      await deferredInstallPrompt.userChoice;
-    }catch(err){}
-
-    deferredInstallPrompt = null;
-    updateInstallCard();
-    return;
-  }
-
-  if(isiOS){
-    alert(
-      'To install DocuKeep on iPhone: open this page in Safari, tap the Share button, then choose “Add to Home Screen.”'
-    );
-  }
-});
-
-if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{});
-  });
-}
 
 window.addEventListener('load',()=>{
+  document.documentElement.classList.add('native-ios');
   const splash = document.getElementById('launchSplash');
 
   setTimeout(()=>{
     if(splash){
       splash.classList.add('hide');
-
-      setTimeout(()=>{
-        splash.remove();
-      },350);
+      setTimeout(()=>splash.remove(),350);
     }
-  },500);
-
-  updateInstallCard();
+  },350);
 });
 
 async function init(){

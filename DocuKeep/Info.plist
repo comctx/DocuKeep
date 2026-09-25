@@ -23,7 +23,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>DocuKeep uses the camera so you can photograph documents to save in your secure vault.</string>
+	<string>MyDocuKeep uses the camera to scan and crop document pages that you choose to save in your secure vault.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>DocuKeep lets you choose document photos from your photo library.</string>
 	<key>UIApplicationSceneManifest</key>

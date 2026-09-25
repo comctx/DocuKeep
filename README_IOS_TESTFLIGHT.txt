@@ -48,3 +48,20 @@ Use harmless sample documents in the first TestFlight build. Confirm:
 
 SECURITY NOTE
 This is a meaningful native wrapper around the encrypted DocuKeep web application, but it has not undergone an independent security audit. Do not market it as audited or guaranteed secure.
+
+
+CAMERA FIX - v2
+---------------
+The Take Photo action now opens Apple's native VisionKit document scanner in the iOS app.
+This replaces the incorrect media-capture fallback screen seen in TestFlight Build 3.
+
+Benefits:
+- automatic document edge detection
+- perspective correction / cropping
+- multi-page scanning in one session
+- retake before saving
+- scanned pages return directly to MyDocuKeep
+- existing Choose Photo / Choose Several options remain available
+
+Upload this updated project to GitHub and run a new CodeMagic build.
+The next TestFlight build will receive a new build number automatically.

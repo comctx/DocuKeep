@@ -1,5 +1,6 @@
 import UIKit
 import WebKit
+import VisionKit
 
 final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     private var webView: WKWebView!
@@ -25,6 +26,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
         configuration.websiteDataStore = .default()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.userContentController.add(self, name: "docukeepFile")
+        configuration.userContentController.add(self, name: "docukeepCamera")
 
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -60,6 +62,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
 
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepFile")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepCamera")
     }
 
     private func showFatalError(_ message: String) {
@@ -80,6 +83,15 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     // MARK: - Native file sharing bridge
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "docukeepCamera" {
+            guard let body = message.body as? [String: Any],
+                  let action = body["action"] as? String,
+                  action == "scan" else { return }
+
+            presentDocumentScanner()
+            return
+        }
+
         guard message.name == "docukeepFile",
               let body = message.body as? [String: Any],
               let action = body["action"] as? String,
@@ -103,6 +115,77 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
 
         default:
             break
+        }
+    }
+
+    // MARK: - Native document scanner
+
+    private func presentDocumentScanner() {
+        guard VNDocumentCameraViewController.isSupported else {
+            notifyScannerUnavailable()
+            return
+        }
+
+        let scanner = VNDocumentCameraViewController()
+        scanner.delegate = self
+        scanner.modalPresentationStyle = .fullScreen
+
+        DispatchQueue.main.async { [weak self] in
+            self?.present(scanner, animated: true)
+        }
+    }
+
+    private func notifyScannerUnavailable() {
+        let js = """
+        window.docukeepNativeScannerUnavailable &&
+        window.docukeepNativeScannerUnavailable();
+        """
+
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.evaluateJavaScript(js)
+        }
+    }
+
+    private func sendScannedPageToWeb(_ image: UIImage, pageNumber: Int, totalPages: Int) {
+        let resized = resizeForDocumentStorage(image, maxSide: 1600)
+
+        guard let jpeg = resized.jpegData(compressionQuality: 0.80) else { return }
+
+        let dataURL = "data:image/jpeg;base64," + jpeg.base64EncodedString()
+
+        // JSONSerialization gives us a JavaScript-safe quoted string.
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: [dataURL]),
+              let jsonArray = String(data: jsonData, encoding: .utf8),
+              jsonArray.count >= 2 else { return }
+
+        let quotedDataURL = String(jsonArray.dropFirst().dropLast())
+
+        let js = """
+        window.docukeepNativeAddPage &&
+        window.docukeepNativeAddPage(\(quotedDataURL), \(pageNumber), \(totalPages));
+        """
+
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.evaluateJavaScript(js)
+        }
+    }
+
+    private func resizeForDocumentStorage(_ image: UIImage, maxSide: CGFloat) -> UIImage {
+        let size = image.size
+        let largest = max(size.width, size.height)
+
+        guard largest > maxSide else { return image }
+
+        let scale = maxSide / largest
+        let newSize = CGSize(
+            width: max(1, floor(size.width * scale)),
+            height: max(1, floor(size.height * scale))
+        )
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 
@@ -220,5 +303,73 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
             completionHandler(alert.textFields?.first?.text)
         })
         present(alert, animated: true)
+    }
+}
+
+
+extension ViewController: VNDocumentCameraViewControllerDelegate {
+    func documentCameraViewController(
+        _ controller: VNDocumentCameraViewController,
+        didFinishWith scan: VNDocumentCameraScan
+    ) {
+        controller.dismiss(animated: true)
+
+        let total = scan.pageCount
+
+        guard total > 0 else { return }
+
+        for index in 0..<total {
+            let image = scan.imageOfPage(at: index)
+            sendScannedPageToWeb(
+                image,
+                pageNumber: index + 1,
+                totalPages: total
+            )
+        }
+
+        let js = """
+        window.docukeepNativeScanFinished &&
+        window.docukeepNativeScanFinished(\(total));
+        """
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.webView.evaluateJavaScript(js)
+        }
+    }
+
+    func documentCameraViewControllerDidCancel(
+        _ controller: VNDocumentCameraViewController
+    ) {
+        controller.dismiss(animated: true)
+
+        let js = """
+        window.docukeepNativeScanCancelled &&
+        window.docukeepNativeScanCancelled();
+        """
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.webView.evaluateJavaScript(js)
+        }
+    }
+
+    func documentCameraViewController(
+        _ controller: VNDocumentCameraViewController,
+        didFailWithError error: Error
+    ) {
+        controller.dismiss(animated: true)
+
+        let message = error.localizedDescription
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: " ")
+
+        let js = """
+        window.docukeepNativeScanFailed &&
+        window.docukeepNativeScanFailed("\(message)");
+        """
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.webView.evaluateJavaScript(js)
+        }
     }
 }
