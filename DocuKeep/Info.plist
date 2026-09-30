@@ -22,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>MyDocuKeep uses the camera to scan and crop document pages that you choose to save in your secure vault.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
