@@ -1428,7 +1428,7 @@ const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
 const PENDING_STORE = 'pending';
 const MAX_IMAGE_SIDE = 3000;
-const JPEG_QUALITY = 0.90;
+const JPEG_QUALITY = 0.92;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 const SCHEMA_VERSION = 4;
 const MAX_FAILED_PINS = 5;
@@ -2679,7 +2679,7 @@ async function enhanceScanData(dataUrl){
   octx.filter = 'none';
 
   return {
-    data:out.toDataURL('image/jpeg',0.88),
+    data:out.toDataURL('image/jpeg',0.92),
     cropped:bounds.cropped
   };
 }
