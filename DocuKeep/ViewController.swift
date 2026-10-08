@@ -30,6 +30,14 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+
+        // Keep the manual document-camera preview inside MyDocuKeep instead
+        // of letting iOS promote the <video> element to its fullscreen
+        // media player UI (which shows the large pause/play controls).
+        configuration.allowsInlineMediaPlayback = true
+        if #available(iOS 10.0, *) {
+            configuration.mediaTypesRequiringUserActionForPlayback = []
+        }
         configuration.userContentController.add(self, name: "docukeepFile")
         configuration.userContentController.add(self, name: "docukeepCamera")
         configuration.userContentController.add(self, name: "docukeepBiometric")
