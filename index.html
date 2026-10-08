@@ -1020,16 +1020,10 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   <main>
     <section class="card lockbox">
       <h2>DocuKeep is Locked</h2>
-      <p class="small">Enter your PIN. MyDocuKeep will unlock automatically when the PIN is complete.</p>
+      <p class="small">Enter your PIN. MyDocuKeep will open automatically when the correct PIN is entered.</p>
 
       <label for="unlockPin">PIN</label>
       <input id="unlockPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter PIN">
-
-      <div class="spacer"></div>
-
-      <button id="unlockAppBtn" class="primary" type="button">
-        Unlock DocuKeep
-      </button>
 
       <div class="spacer"></div>
 
@@ -2884,6 +2878,11 @@ function showLocked(){
   document.getElementById('setupShell').style.display = 'none';
   document.getElementById('lockedShell').style.display = 'block';
   document.getElementById('appShell').style.display = 'none';
+
+  setTimeout(()=>{
+    const pinField = document.getElementById('unlockPin');
+    if(pinField) pinField.focus();
+  },120);
 }
 
 async function showUnlockedApp(){
@@ -3147,8 +3146,6 @@ document.querySelectorAll('[data-go]').forEach(b=>{
 });
 
 document.getElementById('createVaultBtn').addEventListener('click',createVault);
-document.getElementById('unlockAppBtn').addEventListener('click',unlockApp);
-
 document.getElementById('unlockPin').addEventListener('input',async e=>{
   const input = e.currentTarget;
   input.value = input.value.replace(/\D/g,'').slice(0,8);
@@ -3163,12 +3160,23 @@ document.getElementById('unlockPin').addEventListener('input',async e=>{
     expectedLength = Number(vault && vault.pinLength || 0);
   }catch(err){}
 
-  // Only auto-unlock when we know the exact PIN length.
-  // Older vaults keep using the Unlock button until one successful unlock stores it.
-  if(expectedLength >= 4 && expectedLength <= 8 && input.value.length === expectedLength){
-    unlockInputTimer = setTimeout(()=>unlockApp(),150);
+  if(expectedLength >= 4 && expectedLength <= 8){
+    if(input.value.length === expectedLength){
+      unlockInputTimer = setTimeout(()=>unlockApp(),120);
+    }
+    return;
   }
+
+  // Older vaults may not have the PIN length stored yet.
+  // Wait until typing pauses, then verify the PIN automatically.
+  // After the first successful unlock, the exact PIN length is saved.
+  unlockInputTimer = setTimeout(()=>{
+    if(input.value.length >= 4 && input.value.length <= 8){
+      unlockApp();
+    }
+  },1400);
 });
+
 document.getElementById('forgotPinBtn').addEventListener('click',startForgotPinRecovery);
 
 document.getElementById('saveRecoveryQuestionsBtn').addEventListener('click',saveRecoveryQuestions);
