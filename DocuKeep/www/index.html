@@ -240,7 +240,7 @@ textarea{resize:vertical}
 }
 .toolbar{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(6,1fr);
   gap:8px;
   margin-top:14px;
 }
@@ -1020,7 +1020,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   <main>
     <section class="card lockbox">
       <h2>DocuKeep is Locked</h2>
-      <p class="small">Enter your PIN to securely open your documents.</p>
+      <p class="small">Enter your PIN. MyDocuKeep will unlock automatically when the PIN is complete.</p>
 
       <label for="unlockPin">PIN</label>
       <input id="unlockPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter PIN">
@@ -1093,6 +1093,15 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <strong>Trash</strong>
       <span id="homeTrashCount" class="quick-meta">Recently removed</span>
     </button>
+  </div>
+
+  <div class="home-section-title">
+    <h3>⭐ Quick Access</h3>
+    <span class="small">Insurance cards, registration, IDs, and other important papers</span>
+  </div>
+
+  <div id="quickAccessDocuments" class="card recent-card">
+    <div class="empty">No Quick Access documents yet. Open a document and tap “Add to Quick Access.”</div>
   </div>
 
   <div class="home-section-title">
@@ -1180,7 +1189,12 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <button id="openCameraBtn" type="button" class="fake-file">
         <span class="ico">📷</span>
         <strong>Scan Document</strong><br>
-        <span class="small">Auto-crop document pages</span>
+        <span class="small">Frame it first, then tap Capture</span>
+      </button>
+      <button id="autoScanBtn" type="button" class="fake-file">
+        <span class="ico">⚡</span>
+        <strong>Auto Scan</strong><br>
+        <span class="small">Apple automatic document capture</span>
       </button>
       <input id="cameraFallbackInput" type="file" accept="image/*" capture="environment" style="display:none">
 
@@ -1367,6 +1381,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <button id="printBtn" type="button" class="secondary">🖨️ Print</button>
       <button id="shareBtn" type="button" class="secondary">↗️ Share</button>
       <button id="pdfBtn" type="button" class="secondary">📄 Save as PDF</button>
+      <button id="quickAccessBtn" type="button" class="secondary">☆ Add to Quick Access</button>
 
       <label class="secondary"
              style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
@@ -1550,8 +1565,8 @@ const DB_VERSION = 7;
 const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
 const PENDING_STORE = 'pending';
-const MAX_IMAGE_SIDE = 3000;
-const JPEG_QUALITY = 0.92;
+const MAX_IMAGE_SIDE = 4200;
+const JPEG_QUALITY = 0.97;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 const SCHEMA_VERSION = 5;
 const MAX_FAILED_PINS = 5;
@@ -1569,6 +1584,11 @@ let pinLockoutUntil = 0;
 let corruptedRecordCount = 0;
 let trustedExternalInteractionUntil = 0;
 let backgroundLockTimer = null;
+let unlockGraceUntil = 0;
+let unlockInputTimer = null;
+let unlockInProgress = false;
+let vaultAccessAuthorized = false;
+let secureDocAccessAuthorized = false;
 let masterKeyRawB64 = null;
 let recoveredMasterKeyB64 = null;
 let recoveryFailedAttempts = 0;
@@ -2515,6 +2535,7 @@ async function createVault(){
     await idbPut(CONFIG_STORE,{
       id:'vault',
       version:2,
+      pinLength:pin.length,
       pinSalt:pinWrap.pinSalt,
       pinWrap:pinWrap.pinWrap,
       verifier
@@ -2566,6 +2587,7 @@ async function migrateLegacyVault(pin,legacyConfig,legacyKey){
   const newVault = {
     id:'vault',
     version:2,
+    pinLength:pin.length,
     pinSalt:pinWrap.pinSalt,
     pinWrap:pinWrap.pinWrap,
     verifier
@@ -2583,8 +2605,17 @@ async function migrateLegacyVault(pin,legacyConfig,legacyKey){
 }
 
 async function unlockApp(){
+  if(unlockInProgress) return;
+
   const pin = document.getElementById('unlockPin').value.trim();
   const status = document.getElementById('unlockStatus');
+
+  if(!/^\d{4,8}$/.test(pin)){
+    status.textContent = 'Enter your 4–8 digit PIN.';
+    return;
+  }
+
+  unlockInProgress = true;
 
   if(Date.now() < pinLockoutUntil){
     const seconds = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
@@ -2595,6 +2626,7 @@ async function unlockApp(){
   const config = await idbGet(CONFIG_STORE,'vault');
 
   if(!config){
+    unlockInProgress = false;
     showSetup();
     return;
   }
@@ -2611,6 +2643,12 @@ async function unlockApp(){
       storeMasterKeyForFaceID();
 
       await loadDocuments();
+
+      if(config.pinLength !== pin.length){
+        try{
+          await idbPut(CONFIG_STORE,{...config,pinLength:pin.length});
+        }catch(err){}
+      }
 
     }else{
       const legacyKey = await deriveKey(pin,config.salt);
@@ -2629,18 +2667,36 @@ async function unlockApp(){
     document.getElementById('unlockPin').value = '';
     status.textContent = '';
 
+    // iOS/WKWebView can briefly report a hidden/pagehide state while the
+    // PIN keyboard is closing. Give a short grace period so a successful
+    // unlock is not immediately mistaken for backgrounding.
+    unlockGraceUntil = Date.now() + 10000;
+
     await showUnlockedApp();
 
   }catch(err){
-    failedPinAttempts += 1;
+    const message = String(err && err.message || '');
+    const looksLikeWrongPin =
+      message.includes('Invalid PIN') ||
+      message.includes('Incorrect') ||
+      message.includes('operation failed') ||
+      message.includes('decrypt');
 
-    if(failedPinAttempts >= MAX_FAILED_PINS){
-      pinLockoutUntil = Date.now() + PIN_LOCKOUT_MS;
-      failedPinAttempts = 0;
-      status.textContent = 'Too many incorrect attempts. Try again in 30 seconds.';
+    if(looksLikeWrongPin){
+      failedPinAttempts += 1;
+
+      if(failedPinAttempts >= MAX_FAILED_PINS){
+        pinLockoutUntil = Date.now() + PIN_LOCKOUT_MS;
+        failedPinAttempts = 0;
+        status.textContent = 'Too many incorrect attempts. Try again in 30 seconds.';
+      }else{
+        status.textContent = `PIN not accepted. ${MAX_FAILED_PINS - failedPinAttempts} attempt(s) before a short delay.`;
+      }
     }else{
-      status.textContent = `Incorrect PIN. ${MAX_FAILED_PINS - failedPinAttempts} attempt(s) before a short delay.`;
+      status.textContent = 'MyDocuKeep could not unlock. Please try again.';
     }
+  }finally{
+    unlockInProgress = false;
   }
 }
 
@@ -2781,6 +2837,7 @@ async function changeVaultPin(currentPin,newPin){
   await idbPut(CONFIG_STORE,{
     ...config,
     version:2,
+    pinLength:newPin.length,
     pinSalt:pinWrap.pinSalt,
     pinWrap:pinWrap.pinWrap
   });
@@ -2810,9 +2867,16 @@ function showSetup(){
 function showLocked(){
   clearTimeout(inactivityTimer);
 
+  const unlockInput = document.getElementById('unlockPin');
+  const unlockStatus = document.getElementById('unlockStatus');
+  if(unlockInput) unlockInput.value = '';
+  if(unlockStatus) unlockStatus.textContent = '';
+
   cryptoKey = null;
   masterKeyRawB64 = null;
   recoveredMasterKeyB64 = null;
+  vaultAccessAuthorized = false;
+  secureDocAccessAuthorized = false;
   documents = [];
   workingPages = [];
   currentDocId = null;
@@ -2823,6 +2887,9 @@ function showLocked(){
 }
 
 async function showUnlockedApp(){
+  clearTimeout(backgroundLockTimer);
+  backgroundLockTimer = null;
+
   document.getElementById('setupShell').style.display = 'none';
   document.getElementById('lockedShell').style.display = 'none';
   document.getElementById('appShell').style.display = 'block';
@@ -2872,11 +2939,23 @@ document.addEventListener('visibilitychange',()=>{
       return;
     }
 
+    const delay = Math.max(
+      3000,
+      unlockGraceUntil > Date.now()
+        ? (unlockGraceUntil - Date.now()) + 1000
+        : 3000
+    );
+
     backgroundLockTimer = setTimeout(()=>{
-      if(document.hidden && cryptoKey && !trustedExternalInteractionActive()){
+      if(
+        document.hidden &&
+        cryptoKey &&
+        !trustedExternalInteractionActive() &&
+        Date.now() >= unlockGraceUntil
+      ){
         showLocked();
       }
-    },3000);
+    },delay);
 
   }else{
     clearTimeout(backgroundLockTimer);
@@ -2884,8 +2963,9 @@ document.addEventListener('visibilitychange',()=>{
 
     if(trustedExternalInteractionActive()){
       trustedExternalInteractionUntil = 0;
-      resetInactivity();
     }
+
+    resetInactivity();
   }
 });
 
@@ -2897,11 +2977,30 @@ window.addEventListener('pagehide',()=>{
   }
 
   clearTimeout(backgroundLockTimer);
+
+  const delay = Math.max(
+    3000,
+    unlockGraceUntil > Date.now()
+      ? (unlockGraceUntil - Date.now()) + 1000
+      : 3000
+  );
+
   backgroundLockTimer = setTimeout(()=>{
-    if(cryptoKey && !trustedExternalInteractionActive()){
+    if(
+      cryptoKey &&
+      !trustedExternalInteractionActive() &&
+      Date.now() >= unlockGraceUntil
+    ){
       showLocked();
     }
-  },3000);
+  },delay);
+});
+
+window.addEventListener('focus',()=>{
+  if(!cryptoKey) return;
+  clearTimeout(backgroundLockTimer);
+  backgroundLockTimer = null;
+  resetInactivity();
 });
 
 async function updateStorageStatus(){
@@ -2959,7 +3058,52 @@ function esc(s){
   }[c]));
 }
 
+async function verifyVaultPin(pin){
+  if(!/^\d{4,8}$/.test(pin)) return false;
+
+  const config = await idbGet(CONFIG_STORE,'vault');
+  if(!config) return false;
+
+  try{
+    if(isModernVault(config)){
+      const rawMasterB64 = await unwrapMasterKeyWithPin(pin,config);
+      const key = await importMasterKey(base64ToBytes(rawMasterB64));
+      await verifyMasterKey(key,config);
+      return true;
+    }
+
+    const legacyKey = await deriveKey(pin,config.salt);
+    const result = await decryptObject(config.verifier,legacyKey);
+    return !!(result && result.ok === 'DOCUKEEP_OK');
+  }catch(err){
+    return false;
+  }
+}
+
+async function requestVaultAccess(){
+  const pin = prompt('Enter your PIN to open the Locked Vault.');
+
+  if(pin === null) return;
+
+  if(!(await verifyVaultPin(String(pin).trim()))){
+    alert('Incorrect PIN. The Locked Vault remains closed.');
+    return;
+  }
+
+  vaultAccessAuthorized = true;
+  try{
+    showView('vault');
+  }finally{
+    vaultAccessAuthorized = false;
+  }
+}
+
 function showView(name){
+  if(name==='vault' && !vaultAccessAuthorized){
+    requestVaultAccess();
+    return;
+  }
+
   document.querySelectorAll('.view').forEach(v=>{
     v.classList.remove('active');
   });
@@ -2984,18 +3128,47 @@ function showView(name){
 
 document.querySelectorAll('[data-view]').forEach(b=>{
   b.addEventListener('click',()=>{
-    showView(b.dataset.view);
+    if(b.dataset.view==='vault'){
+      requestVaultAccess();
+    }else{
+      showView(b.dataset.view);
+    }
   });
 });
 
 document.querySelectorAll('[data-go]').forEach(b=>{
   b.addEventListener('click',()=>{
-    showView(b.dataset.go);
+    if(b.dataset.go==='vault'){
+      requestVaultAccess();
+    }else{
+      showView(b.dataset.go);
+    }
   });
 });
 
 document.getElementById('createVaultBtn').addEventListener('click',createVault);
 document.getElementById('unlockAppBtn').addEventListener('click',unlockApp);
+
+document.getElementById('unlockPin').addEventListener('input',async e=>{
+  const input = e.currentTarget;
+  input.value = input.value.replace(/\D/g,'').slice(0,8);
+
+  clearTimeout(unlockInputTimer);
+
+  if(input.value.length < 4) return;
+
+  let expectedLength = 0;
+  try{
+    const vault = await idbGet(CONFIG_STORE,'vault');
+    expectedLength = Number(vault && vault.pinLength || 0);
+  }catch(err){}
+
+  // Only auto-unlock when we know the exact PIN length.
+  // Older vaults keep using the Unlock button until one successful unlock stores it.
+  if(expectedLength >= 4 && expectedLength <= 8 && input.value.length === expectedLength){
+    unlockInputTimer = setTimeout(()=>unlockApp(),150);
+  }
+});
 document.getElementById('forgotPinBtn').addEventListener('click',startForgotPinRecovery);
 
 document.getElementById('saveRecoveryQuestionsBtn').addEventListener('click',saveRecoveryQuestions);
@@ -3449,7 +3622,7 @@ async function enhanceScanData(dataUrl){
   octx.filter = 'none';
 
   return {
-    data:out.toDataURL('image/jpeg',0.92),
+    data:out.toDataURL('image/jpeg',0.97),
     cropped:bounds.cropped
   };
 }
@@ -3703,29 +3876,19 @@ async function openCamera(){
   const status = document.getElementById('cameraStatus');
   status.textContent = '';
 
-  const nativeScanner =
-    window.webkit &&
-    window.webkit.messageHandlers &&
-    window.webkit.messageHandlers.docukeepCamera;
-
-  if(nativeScanner){
-    markTrustedExternalInteraction(180000);
-    document.getElementById('pageStatus').textContent =
-      'Opening document scanner...';
-
-    nativeScanner.postMessage({action:'scan'});
-    return;
-  }
-
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     document.getElementById('cameraFallbackInput').click();
     return;
   }
 
   try{
+    markTrustedExternalInteraction(180000);
+
     cameraStream = await navigator.mediaDevices.getUserMedia({
       video:{
-        facingMode:{ideal:'environment'}
+        facingMode:{ideal:'environment'},
+        width:{ideal:3840},
+        height:{ideal:2160}
       },
       audio:false
     });
@@ -3734,6 +3897,8 @@ async function openCamera(){
     video.srcObject = cameraStream;
 
     document.getElementById('cameraModal').classList.add('open');
+    document.getElementById('cameraStatus').textContent =
+      'Frame the entire document, then tap Capture Photo.';
     await video.play();
 
   }catch(err){
@@ -3743,7 +3908,25 @@ async function openCamera(){
   }
 }
 
+function openAutoScanner(){
+  const nativeScanner =
+    window.webkit &&
+    window.webkit.messageHandlers &&
+    window.webkit.messageHandlers.docukeepCamera;
+
+  if(nativeScanner){
+    markTrustedExternalInteraction(180000);
+    document.getElementById('pageStatus').textContent =
+      'Opening automatic document scanner...';
+    nativeScanner.postMessage({action:'scan'});
+  }else{
+    document.getElementById('pageStatus').textContent =
+      'Automatic scanning is unavailable here. Use Scan Document instead.';
+  }
+}
+
 document.getElementById('openCameraBtn').addEventListener('click',openCamera);
+document.getElementById('autoScanBtn').addEventListener('click',openAutoScanner);
 document.getElementById('closeCameraBtn').addEventListener('click',stopCamera);
 
 document.getElementById('capturePhotoBtn').addEventListener('click',async()=>{
@@ -3822,6 +4005,7 @@ document.getElementById('docForm').addEventListener(
       category:document.getElementById('category').value,
       note:document.getElementById('note').value.trim(),
       secure:document.getElementById('secure').checked,
+      quickAccess:false,
       pages:workingPages.map(p=>({
         label:p.label,
         data:p.data,
@@ -4079,6 +4263,53 @@ function renderHome(){
         : `${trashDocs.length} items in Trash`;
   }
 
+  const quickBox = document.getElementById('quickAccessDocuments');
+
+  if(quickBox){
+    quickBox.innerHTML = '';
+
+    const quickDocs = documents
+      .filter(d=>d.quickAccess && !d.trashedAt)
+      .sort((a,b)=>
+        (b.updatedAt || b.createdAt || b.id || 0) -
+        (a.updatedAt || a.createdAt || a.id || 0)
+      );
+
+    if(!quickDocs.length){
+      quickBox.innerHTML =
+        '<div class="empty">No Quick Access documents yet. Open a document and tap “Add to Quick Access.”</div>';
+    }else{
+      quickDocs.forEach(doc=>{
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'recent-doc';
+
+        btn.innerHTML = `
+          ${doc.thumbnail
+            ? `<img class="recent-thumb" src="${doc.thumbnail}" alt="">`
+            : `<span class="recent-icon">${doc.secure ? '🔒' : '⭐'}</span>`
+          }
+
+          <span class="recent-info">
+            <strong>${esc(doc.name)}</strong>
+            <span>${esc(doc.category)} • ${doc.pages.length} page${doc.pages.length===1?'':'s'}${doc.secure?' • Vault':''}</span>
+          </span>
+
+          <span class="recent-chevron">›</span>
+        `;
+
+        btn.addEventListener('click',()=>{
+          openDoc(
+            doc.id,
+            'home'
+          );
+        });
+
+        quickBox.appendChild(btn);
+      });
+    }
+  }
+
   const recentBox = document.getElementById('recentDocuments');
 
   if(recentBox){
@@ -4321,10 +4552,28 @@ document.getElementById('emptyTrashBtn').addEventListener('click',async()=>{
   updateStorageStatus();
 });
 
-function openDoc(id,from){
+async function openDoc(id,from){
   const doc = documents.find(d=>d.id===id);
 
   if(!doc || doc.trashedAt) return;
+
+  if(doc.secure && from!=='vault' && !secureDocAccessAuthorized){
+    const pin = prompt('Enter your PIN to open this Locked Vault document.');
+    if(pin === null) return;
+
+    if(!(await verifyVaultPin(String(pin).trim()))){
+      alert('Incorrect PIN. This document remains locked.');
+      return;
+    }
+
+    secureDocAccessAuthorized = true;
+    try{
+      await openDoc(id,from);
+    }finally{
+      secureDocAccessAuthorized = false;
+    }
+    return;
+  }
 
   currentDocId = id;
   previousView = from || 'docs';
@@ -4342,6 +4591,13 @@ function openDoc(id,from){
     doc.secure
       ? '🔒 Locked Vault'
       : 'Encrypted document';
+
+  const quickButton = document.getElementById('quickAccessBtn');
+  if(quickButton){
+    quickButton.textContent = doc.quickAccess
+      ? '★ Remove from Quick Access'
+      : '☆ Add to Quick Access';
+  }
 
   document.getElementById('viewerNote').textContent =
     doc.note || 'No note added.';
@@ -4480,6 +4736,32 @@ function openEditor(){
 
 document.getElementById('editDocBtn').addEventListener('click',openEditor);
 
+document.getElementById('quickAccessBtn').addEventListener('click',async()=>{
+  const doc = documents.find(d=>d.id===currentDocId);
+  if(!doc || doc.trashedAt) return;
+
+  doc.quickAccess = !doc.quickAccess;
+
+  try{
+    await persistDoc(doc);
+
+    document.getElementById('quickAccessBtn').textContent =
+      doc.quickAccess
+        ? '★ Remove from Quick Access'
+        : '☆ Add to Quick Access';
+
+    document.getElementById('viewerStatus').textContent =
+      doc.quickAccess
+        ? 'Added to Quick Access. It will appear on the Home screen.'
+        : 'Removed from Quick Access.';
+
+  }catch(err){
+    doc.quickAccess = !doc.quickAccess;
+    document.getElementById('viewerStatus').textContent =
+      'Could not update Quick Access.';
+  }
+});
+
 document.getElementById('editBackBtn').addEventListener('click',()=>{
   openDoc(currentDocId,previousView);
 });
@@ -4617,7 +4899,7 @@ async function ensureJpegDataUrl(dataUrl){
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0);
 
-        resolve(canvas.toDataURL('image/jpeg',0.9));
+        resolve(canvas.toDataURL('image/jpeg',0.97));
       }catch(err){
         reject(err);
       }
