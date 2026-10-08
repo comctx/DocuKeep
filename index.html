@@ -2610,7 +2610,10 @@ async function unlockApp(){
   const pin = document.getElementById('unlockPin').value.trim();
   const status = document.getElementById('unlockStatus');
 
-  if(!/^\d{4,8}$/.test(pin)) return;
+  if(!/^\d{4,8}$/.test(pin)){
+    status.textContent = 'Enter your 4–8 digit PIN.';
+    return;
+  }
 
   unlockInProgress = true;
 
@@ -2672,14 +2675,25 @@ async function unlockApp(){
     await showUnlockedApp();
 
   }catch(err){
-    failedPinAttempts += 1;
+    const message = String(err && err.message || '');
+    const looksLikeWrongPin =
+      message.includes('Invalid PIN') ||
+      message.includes('Incorrect') ||
+      message.includes('operation failed') ||
+      message.includes('decrypt');
 
-    if(failedPinAttempts >= MAX_FAILED_PINS){
-      pinLockoutUntil = Date.now() + PIN_LOCKOUT_MS;
-      failedPinAttempts = 0;
-      status.textContent = 'Too many incorrect attempts. Try again in 30 seconds.';
+    if(looksLikeWrongPin){
+      failedPinAttempts += 1;
+
+      if(failedPinAttempts >= MAX_FAILED_PINS){
+        pinLockoutUntil = Date.now() + PIN_LOCKOUT_MS;
+        failedPinAttempts = 0;
+        status.textContent = 'Too many incorrect attempts. Try again in 30 seconds.';
+      }else{
+        status.textContent = `PIN not accepted. ${MAX_FAILED_PINS - failedPinAttempts} attempt(s) before a short delay.`;
+      }
     }else{
-      status.textContent = `Incorrect PIN. ${MAX_FAILED_PINS - failedPinAttempts} attempt(s) before a short delay.`;
+      status.textContent = 'MyDocuKeep could not unlock. Please try again.';
     }
   }finally{
     unlockInProgress = false;
@@ -2852,6 +2866,11 @@ function showSetup(){
 
 function showLocked(){
   clearTimeout(inactivityTimer);
+
+  const unlockInput = document.getElementById('unlockPin');
+  const unlockStatus = document.getElementById('unlockStatus');
+  if(unlockInput) unlockInput.value = '';
+  if(unlockStatus) unlockStatus.textContent = '';
 
   cryptoKey = null;
   masterKeyRawB64 = null;
@@ -3144,21 +3163,11 @@ document.getElementById('unlockPin').addEventListener('input',async e=>{
     expectedLength = Number(vault && vault.pinLength || 0);
   }catch(err){}
 
-  if(expectedLength >= 4 && expectedLength <= 8){
-    if(input.value.length === expectedLength){
-      unlockApp();
-    }
-    return;
+  // Only auto-unlock when we know the exact PIN length.
+  // Older vaults keep using the Unlock button until one successful unlock stores it.
+  if(expectedLength >= 4 && expectedLength <= 8 && input.value.length === expectedLength){
+    unlockInputTimer = setTimeout(()=>unlockApp(),150);
   }
-
-  // Existing vaults created before automatic unlock did not store PIN length.
-  // Wait briefly after typing stops, then try once. After the first successful
-  // unlock, the PIN length is saved so future unlocks happen immediately.
-  unlockInputTimer = setTimeout(()=>{
-    if(input.value.length >= 4 && input.value.length <= 8){
-      unlockApp();
-    }
-  },1200);
 });
 document.getElementById('forgotPinBtn').addEventListener('click',startForgotPinRecovery);
 
