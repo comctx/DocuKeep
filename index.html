@@ -1569,6 +1569,7 @@ let pinLockoutUntil = 0;
 let corruptedRecordCount = 0;
 let trustedExternalInteractionUntil = 0;
 let backgroundLockTimer = null;
+let unlockGraceUntil = 0;
 let masterKeyRawB64 = null;
 let recoveredMasterKeyB64 = null;
 let recoveryFailedAttempts = 0;
@@ -2629,6 +2630,11 @@ async function unlockApp(){
     document.getElementById('unlockPin').value = '';
     status.textContent = '';
 
+    // iOS/WKWebView can briefly report a hidden/pagehide state while the
+    // PIN keyboard is closing. Give a short grace period so a successful
+    // unlock is not immediately mistaken for backgrounding.
+    unlockGraceUntil = Date.now() + 10000;
+
     await showUnlockedApp();
 
   }catch(err){
@@ -2823,6 +2829,9 @@ function showLocked(){
 }
 
 async function showUnlockedApp(){
+  clearTimeout(backgroundLockTimer);
+  backgroundLockTimer = null;
+
   document.getElementById('setupShell').style.display = 'none';
   document.getElementById('lockedShell').style.display = 'none';
   document.getElementById('appShell').style.display = 'block';
@@ -2872,11 +2881,23 @@ document.addEventListener('visibilitychange',()=>{
       return;
     }
 
+    const delay = Math.max(
+      3000,
+      unlockGraceUntil > Date.now()
+        ? (unlockGraceUntil - Date.now()) + 1000
+        : 3000
+    );
+
     backgroundLockTimer = setTimeout(()=>{
-      if(document.hidden && cryptoKey && !trustedExternalInteractionActive()){
+      if(
+        document.hidden &&
+        cryptoKey &&
+        !trustedExternalInteractionActive() &&
+        Date.now() >= unlockGraceUntil
+      ){
         showLocked();
       }
-    },3000);
+    },delay);
 
   }else{
     clearTimeout(backgroundLockTimer);
@@ -2884,8 +2905,9 @@ document.addEventListener('visibilitychange',()=>{
 
     if(trustedExternalInteractionActive()){
       trustedExternalInteractionUntil = 0;
-      resetInactivity();
     }
+
+    resetInactivity();
   }
 });
 
@@ -2897,11 +2919,30 @@ window.addEventListener('pagehide',()=>{
   }
 
   clearTimeout(backgroundLockTimer);
+
+  const delay = Math.max(
+    3000,
+    unlockGraceUntil > Date.now()
+      ? (unlockGraceUntil - Date.now()) + 1000
+      : 3000
+  );
+
   backgroundLockTimer = setTimeout(()=>{
-    if(cryptoKey && !trustedExternalInteractionActive()){
+    if(
+      cryptoKey &&
+      !trustedExternalInteractionActive() &&
+      Date.now() >= unlockGraceUntil
+    ){
       showLocked();
     }
-  },3000);
+  },delay);
+});
+
+window.addEventListener('focus',()=>{
+  if(!cryptoKey) return;
+  clearTimeout(backgroundLockTimer);
+  backgroundLockTimer = null;
+  resetInactivity();
 });
 
 async function updateStorageStatus(){
