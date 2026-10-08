@@ -240,7 +240,7 @@ textarea{resize:vertical}
 }
 .toolbar{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(6,1fr);
   gap:8px;
   margin-top:14px;
 }
@@ -1096,6 +1096,15 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   </div>
 
   <div class="home-section-title">
+    <h3>⭐ Quick Access</h3>
+    <span class="small">Insurance cards, registration, IDs, and other important papers</span>
+  </div>
+
+  <div id="quickAccessDocuments" class="card recent-card">
+    <div class="empty">No Quick Access documents yet. Open a document and tap “Add to Quick Access.”</div>
+  </div>
+
+  <div class="home-section-title">
     <h3>Recent Documents</h3>
     <button type="button" data-go="docs">View all</button>
   </div>
@@ -1367,6 +1376,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <button id="printBtn" type="button" class="secondary">🖨️ Print</button>
       <button id="shareBtn" type="button" class="secondary">↗️ Share</button>
       <button id="pdfBtn" type="button" class="secondary">📄 Save as PDF</button>
+      <button id="quickAccessBtn" type="button" class="secondary">☆ Add to Quick Access</button>
 
       <label class="secondary"
              style="text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
@@ -3863,6 +3873,7 @@ document.getElementById('docForm').addEventListener(
       category:document.getElementById('category').value,
       note:document.getElementById('note').value.trim(),
       secure:document.getElementById('secure').checked,
+      quickAccess:false,
       pages:workingPages.map(p=>({
         label:p.label,
         data:p.data,
@@ -4118,6 +4129,53 @@ function renderHome(){
       trashDocs.length === 1
         ? '1 item in Trash'
         : `${trashDocs.length} items in Trash`;
+  }
+
+  const quickBox = document.getElementById('quickAccessDocuments');
+
+  if(quickBox){
+    quickBox.innerHTML = '';
+
+    const quickDocs = documents
+      .filter(d=>d.quickAccess && !d.trashedAt)
+      .sort((a,b)=>
+        (b.updatedAt || b.createdAt || b.id || 0) -
+        (a.updatedAt || a.createdAt || a.id || 0)
+      );
+
+    if(!quickDocs.length){
+      quickBox.innerHTML =
+        '<div class="empty">No Quick Access documents yet. Open a document and tap “Add to Quick Access.”</div>';
+    }else{
+      quickDocs.forEach(doc=>{
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'recent-doc';
+
+        btn.innerHTML = `
+          ${doc.thumbnail
+            ? `<img class="recent-thumb" src="${doc.thumbnail}" alt="">`
+            : `<span class="recent-icon">${doc.secure ? '🔒' : '⭐'}</span>`
+          }
+
+          <span class="recent-info">
+            <strong>${esc(doc.name)}</strong>
+            <span>${esc(doc.category)} • ${doc.pages.length} page${doc.pages.length===1?'':'s'}${doc.secure?' • Vault':''}</span>
+          </span>
+
+          <span class="recent-chevron">›</span>
+        `;
+
+        btn.addEventListener('click',()=>{
+          openDoc(
+            doc.id,
+            'home'
+          );
+        });
+
+        quickBox.appendChild(btn);
+      });
+    }
   }
 
   const recentBox = document.getElementById('recentDocuments');
@@ -4384,6 +4442,13 @@ function openDoc(id,from){
       ? '🔒 Locked Vault'
       : 'Encrypted document';
 
+  const quickButton = document.getElementById('quickAccessBtn');
+  if(quickButton){
+    quickButton.textContent = doc.quickAccess
+      ? '★ Remove from Quick Access'
+      : '☆ Add to Quick Access';
+  }
+
   document.getElementById('viewerNote').textContent =
     doc.note || 'No note added.';
 
@@ -4520,6 +4585,32 @@ function openEditor(){
 }
 
 document.getElementById('editDocBtn').addEventListener('click',openEditor);
+
+document.getElementById('quickAccessBtn').addEventListener('click',async()=>{
+  const doc = documents.find(d=>d.id===currentDocId);
+  if(!doc || doc.trashedAt) return;
+
+  doc.quickAccess = !doc.quickAccess;
+
+  try{
+    await persistDoc(doc);
+
+    document.getElementById('quickAccessBtn').textContent =
+      doc.quickAccess
+        ? '★ Remove from Quick Access'
+        : '☆ Add to Quick Access';
+
+    document.getElementById('viewerStatus').textContent =
+      doc.quickAccess
+        ? 'Added to Quick Access. It will appear on the Home screen.'
+        : 'Removed from Quick Access.';
+
+  }catch(err){
+    doc.quickAccess = !doc.quickAccess;
+    document.getElementById('viewerStatus').textContent =
+      'Could not update Quick Access.';
+  }
+});
 
 document.getElementById('editBackBtn').addEventListener('click',()=>{
   openDoc(currentDocId,previousView);
