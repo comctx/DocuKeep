@@ -1550,8 +1550,8 @@ const DB_VERSION = 7;
 const CONFIG_STORE = 'config';
 const DOC_STORE = 'docs';
 const PENDING_STORE = 'pending';
-const MAX_IMAGE_SIDE = 3000;
-const JPEG_QUALITY = 0.92;
+const MAX_IMAGE_SIDE = 4200;
+const JPEG_QUALITY = 0.97;
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 const SCHEMA_VERSION = 5;
 const MAX_FAILED_PINS = 5;
@@ -3449,7 +3449,7 @@ async function enhanceScanData(dataUrl){
   octx.filter = 'none';
 
   return {
-    data:out.toDataURL('image/jpeg',0.92),
+    data:out.toDataURL('image/jpeg',0.97),
     cropped:bounds.cropped
   };
 }
@@ -4617,7 +4617,7 @@ async function ensureJpegDataUrl(dataUrl){
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0);
 
-        resolve(canvas.toDataURL('image/jpeg',0.9));
+        resolve(canvas.toDataURL('image/jpeg',0.97));
       }catch(err){
         reject(err);
       }
