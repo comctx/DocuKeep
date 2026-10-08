@@ -277,9 +277,9 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     }
 
     private func sendScannedPageToWeb(_ image: UIImage, pageNumber: Int, totalPages: Int) {
-        let resized = resizeForDocumentStorage(image, maxSide: 1600)
+        let resized = resizeForDocumentStorage(image, maxSide: 4200)
 
-        guard let jpeg = resized.jpegData(compressionQuality: 0.80) else { return }
+        guard let jpeg = resized.jpegData(compressionQuality: 0.97) else { return }
 
         let dataURL = "data:image/jpeg;base64," + jpeg.base64EncodedString()
 
