@@ -16,6 +16,17 @@ workflows:
         XCODE_PROJECT: DocuKeep.xcodeproj
 
     scripts:
+      - name: Sync web app into iOS bundle
+        script: |
+          set -e
+          cp "$CM_BUILD_DIR/index.html" "$CM_BUILD_DIR/DocuKeep/www/index.html"
+          echo "Synced latest index.html into DocuKeep/www/index.html"
+          grep -q "quickAccessDocuments" "$CM_BUILD_DIR/DocuKeep/www/index.html"
+          if grep -q "Unlock DocuKeep" "$CM_BUILD_DIR/DocuKeep/www/index.html"; then
+            echo "ERROR: stale unlock button still present in bundled HTML"
+            exit 1
+          fi
+
       - name: Verify Xcode project
         script: |
           xcodebuild -list -project "$XCODE_PROJECT"
