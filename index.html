@@ -3476,6 +3476,18 @@ async function fileToCompressedDataURL(file){
     MAX_IMAGE_SIDE / Math.max(img.width,img.height)
   );
 
+  // Preserve an original JPEG byte-for-byte when it already fits our
+  // maximum scan size. This avoids an unnecessary recompression step.
+  if(scale === 1 && /image\/jpe?g/i.test(file.type)){
+    URL.revokeObjectURL(url);
+    return await new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=>resolve(String(reader.result || ''));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   const canvas = document.createElement('canvas');
 
   canvas.width = Math.max(
@@ -3620,24 +3632,85 @@ async function enhanceScanData(dataUrl,mode='clean'){
   out.width = bounds.w;
   out.height = bounds.h;
 
-  const octx = out.getContext('2d');
+  const octx = out.getContext('2d',{willReadFrequently:true});
   octx.imageSmoothingEnabled = true;
   octx.imageSmoothingQuality = 'high';
-
-  // Document-focused cleanup. Keep color documents natural while making
-  // paper cleaner and printed/handwritten text easier to read.
-  if(mode === 'bw'){
-    octx.filter = 'grayscale(1) brightness(1.10) contrast(1.58)';
-  }else{
-    octx.filter = 'brightness(1.075) contrast(1.26) saturate(.82)';
-  }
 
   octx.drawImage(
     source,
     bounds.x,bounds.y,bounds.w,bounds.h,
     0,0,out.width,out.height
   );
-  octx.filter = 'none';
+
+  const image = octx.getImageData(0,0,out.width,out.height);
+  const d = image.data;
+
+  // Auto-level the page from a sparse luminance sample. This brightens
+  // paper and deepens ink without forcing every document into harsh B&W.
+  const sample = [];
+  const pixelCount = out.width * out.height;
+  const sampleEvery = Math.max(1,Math.floor(pixelCount/180000));
+
+  for(let px=0,p=0; p<d.length; p+=4,px++){
+    if(px % sampleEvery) continue;
+    sample.push(0.2126*d[p] + 0.7152*d[p+1] + 0.0722*d[p+2]);
+  }
+
+  sample.sort((a,b)=>a-b);
+
+  const percentile = q =>
+    sample.length
+      ? sample[Math.min(sample.length-1,Math.max(0,Math.floor((sample.length-1)*q)))]
+      : 0;
+
+  const low = Math.max(0,Math.min(115,percentile(0.04)));
+  const high = Math.max(low+55,Math.min(255,percentile(0.96)));
+
+  const stretch = v =>
+    Math.max(0,Math.min(255,((v-low)*255)/(high-low)));
+
+  for(let p=0;p<d.length;p+=4){
+    const r=d[p], g=d[p+1], b=d[p+2];
+    const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+
+    if(mode === 'bw'){
+      // Text mode keeps anti-aliased edges while producing a clean paper
+      // background and dark, readable print/handwriting.
+      let y = stretch(lum);
+      y = y < 170
+        ? Math.pow(y/170,1.18)*160
+        : 160 + Math.pow((y-170)/85,0.72)*95;
+      y = Math.max(0,Math.min(255,y));
+      d[p]=d[p+1]=d[p+2]=Math.round(y);
+    }else{
+      // Color cleanup keeps stamps, signatures, cards and highlights while
+      // neutralizing gray/yellow paper and uneven lighting.
+      const y = stretch(lum);
+      const ratio = lum > 0 ? y/lum : 1;
+
+      let nr = r*ratio;
+      let ng = g*ratio;
+      let nb = b*ratio;
+
+      if(y > 190){
+        const whiten = Math.min(0.72,(y-190)/90);
+        nr += (255-nr)*whiten;
+        ng += (255-ng)*whiten;
+        nb += (255-nb)*whiten;
+      }else if(y < 125){
+        const darken = Math.min(0.22,(125-y)/220);
+        nr *= (1-darken);
+        ng *= (1-darken);
+        nb *= (1-darken);
+      }
+
+      d[p]=Math.max(0,Math.min(255,Math.round(nr)));
+      d[p+1]=Math.max(0,Math.min(255,Math.round(ng)));
+      d[p+2]=Math.max(0,Math.min(255,Math.round(nb)));
+    }
+  }
+
+  octx.putImageData(image,0,0);
 
   return {
     data:out.toDataURL('image/jpeg',JPEG_QUALITY),
@@ -3766,7 +3839,7 @@ function renderWorkingPages(){
           page.originalData = page.data;
         }
 
-        const result = await enhanceScanData(page.data,'clean');
+        const result = await enhanceScanData(page.originalData || page.data,'clean');
         page.data = result.data;
         page.hash = await pageFingerprint(page.data);
         page.enhanced = true;
@@ -4689,6 +4762,8 @@ async function openDoc(id,from){
         <button type="button" class="secondary movePageUp" data-i="${i}" ${i===0?'disabled':''}>↑ Up</button>
         <button type="button" class="secondary movePageDown" data-i="${i}" ${i===doc.pages.length-1?'disabled':''}>↓ Down</button>
         <button type="button" class="secondary rotatePage" data-i="${i}">↻ Rotate</button>
+        <button type="button" class="secondary cleanSavedPage" data-i="${i}">✨ Clean</button>
+        <button type="button" class="secondary bwSavedPage" data-i="${i}">◐ B&amp;W</button>
         <button type="button" class="secondary danger deletePage" data-i="${i}">Delete Page</button>
       </div>
     `;
@@ -4747,6 +4822,72 @@ async function openDoc(id,from){
       }catch(err){
         document.getElementById('viewerStatus').textContent =
           'Could not rotate this page.';
+      }
+    });
+  });
+
+  box.querySelectorAll('.cleanSavedPage').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const i = Number(btn.dataset.i);
+      const page = doc.pages[i];
+      if(!page) return;
+
+      document.getElementById('viewerStatus').textContent =
+        'Cleaning up page at full quality...';
+
+      try{
+        const result = await enhanceScanData(page.data,'clean');
+        page.data = result.data;
+        page.hash = await pageFingerprint(page.data);
+        page.enhanced = true;
+        page.enhanceMode = 'clean';
+
+        if(i===0){
+          doc.thumbnail = await makeThumbnail(page.data);
+        }
+
+        await persistDoc(doc);
+        openDoc(doc.id,previousView);
+
+        document.getElementById('viewerStatus').textContent =
+          result.cropped ? 'Page cleaned and trimmed.' : 'Page cleaned.';
+      }catch(err){
+        document.getElementById('viewerStatus').textContent =
+          'Could not clean up this page.';
+      }
+    });
+  });
+
+  box.querySelectorAll('.bwSavedPage').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const i = Number(btn.dataset.i);
+      const page = doc.pages[i];
+      if(!page) return;
+
+      document.getElementById('viewerStatus').textContent =
+        'Creating sharp black & white page...';
+
+      try{
+        const result = await enhanceScanData(page.data,'bw');
+        page.data = result.data;
+        page.hash = await pageFingerprint(page.data);
+        page.enhanced = true;
+        page.enhanceMode = 'bw';
+
+        if(i===0){
+          doc.thumbnail = await makeThumbnail(page.data);
+        }
+
+        await persistDoc(doc);
+        openDoc(doc.id,previousView);
+
+        document.getElementById('viewerStatus').textContent =
+          result.cropped
+            ? 'Black & white page created and trimmed.'
+            : 'Black & white page created.';
+      }catch(err){
+        document.getElementById('viewerStatus').textContent =
+          'Could not create black & white page.';
       }
     });
   });
