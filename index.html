@@ -3591,7 +3591,7 @@ function findDocumentBounds(ctx,w,h,borderColor){
   return {x:minX,y:minY,w:cw,h:ch,cropped:true};
 }
 
-async function enhanceScanData(dataUrl){
+async function enhanceScanData(dataUrl,mode='clean'){
   const img = await loadDataUrlImage(dataUrl);
 
   const source = document.createElement('canvas');
@@ -3599,6 +3599,8 @@ async function enhanceScanData(dataUrl){
   source.height = img.naturalHeight || img.height;
 
   const sctx = source.getContext('2d',{willReadFrequently:true});
+  sctx.imageSmoothingEnabled = true;
+  sctx.imageSmoothingQuality = 'high';
   sctx.drawImage(img,0,0,source.width,source.height);
 
   const borderColor = estimateBorderColor(
@@ -3619,9 +3621,17 @@ async function enhanceScanData(dataUrl){
   out.height = bounds.h;
 
   const octx = out.getContext('2d');
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = 'high';
 
-  // Gentle cleanup: slight brightness/contrast boost and reduced saturation.
-  octx.filter = 'brightness(1.055) contrast(1.18) saturate(.90)';
+  // Document-focused cleanup. Keep color documents natural while making
+  // paper cleaner and printed/handwritten text easier to read.
+  if(mode === 'bw'){
+    octx.filter = 'grayscale(1) brightness(1.10) contrast(1.58)';
+  }else{
+    octx.filter = 'brightness(1.075) contrast(1.26) saturate(.82)';
+  }
+
   octx.drawImage(
     source,
     bounds.x,bounds.y,bounds.w,bounds.h,
@@ -3630,8 +3640,9 @@ async function enhanceScanData(dataUrl){
   octx.filter = 'none';
 
   return {
-    data:out.toDataURL('image/jpeg',0.97),
-    cropped:bounds.cropped
+    data:out.toDataURL('image/jpeg',JPEG_QUALITY),
+    cropped:bounds.cropped,
+    mode
   };
 }
 
@@ -3715,6 +3726,12 @@ function renderWorkingPages(){
           </button>
           <button
             type="button"
+            class="secondary bwPage"
+            data-i="${i}">
+            ◐ Text B&amp;W
+          </button>
+          <button
+            type="button"
             class="secondary undoEnhance"
             data-i="${i}"
             ${p.originalData ? '' : 'disabled'}>
@@ -3727,7 +3744,7 @@ function renderWorkingPages(){
             Remove
           </button>
         </div>
-        <div class="scan-status">${p.enhanced ? 'Scan cleanup applied' : ''}</div>
+        <div class="scan-status">${p.enhanced ? (p.enhanceMode === 'bw' ? 'Black & white text mode applied' : 'Scan cleanup applied') : ''}</div>
       </div>
     `;
 
@@ -3749,10 +3766,11 @@ function renderWorkingPages(){
           page.originalData = page.data;
         }
 
-        const result = await enhanceScanData(page.data);
+        const result = await enhanceScanData(page.data,'clean');
         page.data = result.data;
         page.hash = await pageFingerprint(page.data);
         page.enhanced = true;
+        page.enhanceMode = 'clean';
         renderWorkingPages();
 
         document.getElementById('pageStatus').textContent =
@@ -3762,6 +3780,43 @@ function renderWorkingPages(){
       }catch(err){
         b.disabled = false;
         status.textContent = 'Could not clean up this page.';
+      }
+    });
+  });
+
+  box.querySelectorAll('.bwPage').forEach(b=>{
+    b.addEventListener('click',async()=>{
+      const i = Number(b.dataset.i);
+      const page = workingPages[i];
+      if(!page) return;
+
+      const status = b.closest('.meta').querySelector('.scan-status');
+      status.textContent = 'Creating high-contrast black & white page...';
+      b.disabled = true;
+
+      try{
+        if(!page.originalData){
+          page.originalData = page.data;
+        }
+
+        // Always create B&W from the original when available so repeated
+        // cleanup does not stack JPEG compression.
+        const sourceData = page.originalData || page.data;
+        const result = await enhanceScanData(sourceData,'bw');
+
+        page.data = result.data;
+        page.hash = await pageFingerprint(page.data);
+        page.enhanced = true;
+        page.enhanceMode = 'bw';
+        renderWorkingPages();
+
+        document.getElementById('pageStatus').textContent =
+          result.cropped
+            ? 'Black & white page cleaned up and trimmed.'
+            : 'Black & white text mode applied.';
+      }catch(err){
+        b.disabled = false;
+        status.textContent = 'Could not create black & white page.';
       }
     });
   });
@@ -3776,6 +3831,7 @@ function renderWorkingPages(){
       page.hash = await pageFingerprint(page.data);
       delete page.originalData;
       delete page.enhanced;
+      delete page.enhanceMode;
 
       renderWorkingPages();
       document.getElementById('pageStatus').textContent =
@@ -4907,7 +4963,7 @@ async function ensureJpegDataUrl(dataUrl){
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0);
 
-        resolve(canvas.toDataURL('image/jpeg',0.97));
+        resolve(canvas.toDataURL('image/jpeg',JPEG_QUALITY));
       }catch(err){
         reject(err);
       }
@@ -5015,6 +5071,7 @@ async function createDocumentPdfBlob(doc){
           `<< /Type /XObject /Subtype /Image ` +
           `/Width ${page.width} /Height ${page.height} ` +
           `/ColorSpace /DeviceRGB /BitsPerComponent 8 ` +
+          `/Interpolate false ` +
           `/Filter /DCTDecode /Length ${page.bytes.length} >>\nstream\n`
         ),
         page.bytes,
