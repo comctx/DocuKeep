@@ -1,4 +1,4 @@
-const CACHE_NAME = 'docukeep-v16-photo-crop';
+const CACHE_NAME = 'docukeep-v17-scanner-files';
 
 const APP_SHELL = [
   './',
