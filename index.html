@@ -1042,7 +1042,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <div id="setupStatus" class="status"></div>
 
       <div class="security-note">
-        PIN recovery can use Face ID. You can also set 3 security questions as a fallback.
+        You can set up 3 security questions to recover access if you forget your PIN.
       </div>
     </section>
   </main>
@@ -1188,7 +1188,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
         <div class="spacer"></div>
 
         <button id="openRecoverySetupBtn" type="button" class="secondary no-print" style="width:100%">
-          🙂 Face ID & Security Questions
+          🔐 Security Questions
         </button>
 
         <div class="change-pin-note">
@@ -2455,7 +2455,7 @@ async function startForgotPinRecovery(){
 
   if(!isModernVault(vault)){
     status.textContent =
-      'This existing vault must be unlocked once with its current PIN before Face ID recovery can be enabled.';
+      'Unlock this existing vault once with the current PIN before PIN recovery can be enabled.';
     return;
   }
 
@@ -2470,7 +2470,7 @@ async function startForgotPinRecovery(){
     }catch(err){}
   }
 
-  status.textContent = 'Face ID is not available. Use your 3 security questions.';
+  status.textContent = 'Use your 3 security questions to recover your PIN.';
   await openSecurityRecovery();
 }
 
@@ -4317,6 +4317,11 @@ function openAutoScanner(){
 
 document.getElementById('openCameraBtn').addEventListener('click',openCamera);
 document.getElementById('autoScanBtn').addEventListener('click',openAutoScanner);
+// Apple's native document scanner is not part of the Windows/web version.
+// Hide the unavailable action and keep the camera and file-import controls usable.
+if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.docukeepCamera)) {
+  document.getElementById('autoScanBtn').hidden = true;
+}
 document.getElementById('closeCameraBtn').addEventListener('click',stopCamera);
 
 document.getElementById('capturePhotoBtn').addEventListener('click',async()=>{
