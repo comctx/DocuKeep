@@ -1,4 +1,4 @@
-const CACHE_NAME = 'docukeep-v14-fast-unlock';
+const CACHE_NAME = 'docukeep-v15-page-controls';
 
 const APP_SHELL = [
   './',
