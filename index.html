@@ -4825,7 +4825,7 @@ async function openDoc(id,from){
         <button type="button" class="secondary rotatePage" data-i="${i}">↻ Rotate</button>
         <button type="button" class="secondary cleanSavedPage" data-i="${i}">✨ Clean</button>
         <button type="button" class="secondary bwSavedPage" data-i="${i}">◐ B&amp;W</button>
-        <button type="button" class="secondary danger deletePage" data-i="${i}">Delete Page</button>
+        ${doc.pages.length > 1 ? '<button type="button" class="secondary danger deletePage" data-i="'+i+'">Delete Page</button>' : ''}
       </div>
     `;
 
