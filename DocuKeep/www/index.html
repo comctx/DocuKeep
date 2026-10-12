@@ -1205,7 +1205,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   <div class="card">
     <h2>Add Document</h2>
     <p class="small">
-      Use your phone camera or choose existing photos.
+      Use your phone camera, import photos, or bring in a PDF or image saved by a document scanner.
       Add a front, back, or as many pages as needed.
     </p>
 
@@ -1220,6 +1220,12 @@ footer strong{color:var(--ink);letter-spacing:.03em}
         <strong>Auto Scan</strong><br>
         <span class="small">Apple automatic document capture</span>
       </button>
+      <button id="importScannerBtn" type="button" class="fake-file">
+        <span class="ico">🖨️</span>
+        <strong>Import Scanner File</strong><br>
+        <span class="small">Any scanner app • PDF or image from Files</span>
+      </button>
+      <input id="externalScannerFile" type="file" accept=".pdf,application/pdf,image/jpeg,image/png,image/heic,image/heif,image/webp,image/*" multiple style="display:none">
       <input id="cameraFallbackInput" type="file" accept="image/*" capture="environment" style="display:none">
 
       <label class="fake-file">
@@ -4034,6 +4040,136 @@ function renderWorkingPages(){
   });
 }
 
+
+/* Vendor-neutral scanner workflow. Scanner apps write a PDF/image to Files;
+   DocuKeep imports locally. No manufacturer-specific network protocol. */
+const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let pdfJsLoadPromise = null;
+function loadLocalPdfRenderer(){
+ if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+ if(pdfJsLoadPromise)return pdfJsLoadPromise;
+ pdfJsLoadPromise=new Promise((resolve,reject)=>{
+  const js=document.createElement('script');
+  js.src=PDFJS_URL;
+  js.async=true;
+  js.onload=()=>{
+   if(!window.pdfjsLib){reject(new Error('PDF renderer unavailable'));return;}
+   window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;
+   resolve(window.pdfjsLib);
+  };
+  js.onerror=()=>reject(new Error('PDF renderer could not load'));
+  document.head.appendChild(js);
+ }).catch(err=>{pdfJsLoadPromise=null;throw err});
+ return pdfJsLoadPromise;
+}
+async function importScannerFiles(files){
+ if(!cryptoKey){
+  document.getElementById('pageStatus').textContent='Unlock DocuKeep before importing scanned documents.';
+  return;
+ }
+ const status=document.getElementById('pageStatus');
+ let added=0,skipped=0,failures=0,limited=false;
+ for(const file of files){
+  if(workingPages.length>=20){limited=true;break;}
+  const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name||'');
+  if(isPdf){
+   if(file.size>40*1024*1024){
+    failures++;status.textContent='PDF too large (maximum 40 MB).';continue;
+   }
+   let pdf=null;
+   try{
+    status.textContent='Opening scanned PDF locally...';
+    const reader=await loadLocalPdfRenderer();
+    const data=new Uint8Array(await file.arrayBuffer());
+    pdf=await reader.getDocument({data,useSystemFonts:true}).promise;
+    if(pdf.numPages>20-workingPages.length) limited=true;
+    const maxPages=Math.min(pdf.numPages,20-workingPages.length);
+    for(let index=1;index<=maxPages;index++){
+     if(!cryptoKey)throw new Error('Vault locked');
+     status.textContent='Importing PDF page '+index+' of '+maxPages+'...';
+     const page=await pdf.getPage(index);
+     const original=page.getViewport({scale:1});
+     const scale=Math.min(4,MAX_IMAGE_SIDE/Math.max(original.width,original.height));
+     const viewport=page.getViewport({scale});
+     const canvas=document.createElement('canvas');
+     canvas.width=Math.max(1,Math.ceil(viewport.width));
+     canvas.height=Math.max(1,Math.ceil(viewport.height));
+     const ctx=canvas.getContext('2d');
+     if(!ctx)throw new Error('Unable to render PDF');
+     ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+     await page.render({canvasContext:ctx,viewport}).promise;
+     const image=canvas.toDataURL('image/jpeg',JPEG_QUALITY);
+     const hash=await pageFingerprint(image);
+     canvas.width=0;canvas.height=0;
+     if(workingPages.some(p=>p.hash===hash)){skipped++;continue;}
+     if(workingPages.length>=20){limited=true;break;}
+     workingPages.push({label:'',data:image,hash});
+     added++;
+     relabelWorkingPages();
+     renderWorkingPages();
+    }
+   }catch(err){
+    failures++;
+    status.textContent=String(err?.message||'').includes('password')?
+     'This PDF is password protected. Export an unlocked copy from your scanner app.' :
+     'Could not import this PDF. Check the file and try again.';
+   }finally{
+    if(pdf)try{await pdf.destroy()}catch(err){}
+   }
+  }else if(file.type.startsWith('image/')){
+   try{
+    status.textContent='Importing scanned image...';
+    const data=await fileToCompressedDataURL(file);
+    const hash=await pageFingerprint(data);
+    if(workingPages.some(p=>p.hash===hash)){skipped++;continue;}
+    workingPages.push({label:'',data,hash});added++;
+   }catch(err){failures++;}
+  }else{failures++;}
+ }
+ relabelWorkingPages();
+ renderWorkingPages();
+ status.textContent=(added?added+' scanner page'+(added===1?'':'s')+' ready to save.':'No scanner pages imported.')+
+  (skipped?' '+skipped+' duplicate(s) skipped.':'')+
+  (limited?' Limit: 20 pages per document.':'')+
+  (failures?' '+failures+' file(s) could not be imported.':'');
+}
+document.getElementById('importScannerBtn').addEventListener('click',()=>{
+ if(!cryptoKey)return;
+ const nativeImport=window.webkit?.messageHandlers?.docukeepScannerImport;
+ if(nativeImport){
+  markTrustedExternalInteraction(180000);
+  document.getElementById('pageStatus').textContent='Choose a PDF or image saved by your scanner...';
+  nativeImport.postMessage({action:'import',slots:Math.max(0,20-workingPages.length)});
+ }else{
+  document.getElementById('externalScannerFile').click();
+ }
+});
+document.getElementById('externalScannerFile').addEventListener('change',async event=>{
+ const files=[...event.target.files];
+ event.target.value='';
+ if(files.length)await importScannerFiles(files);
+});
+window.docukeepNativeImportFinished=function(added,total,limited){
+ if(!cryptoKey)return;
+ relabelWorkingPages();
+ renderWorkingPages();
+ document.getElementById('pageStatus').textContent=
+  added+' scanned page'+(added===1?'':'s')+' imported from Files and ready to save.'+
+  (limited?' First '+total+' page(s) selected due to the 20-page document limit.':'');
+ trustedExternalInteractionUntil=0;resetInactivity();
+};
+window.docukeepNativeImportFailed=function(message){
+ if(!cryptoKey)return;
+ document.getElementById('pageStatus').textContent=message||'Scanner file could not be imported.';
+ trustedExternalInteractionUntil=0;resetInactivity();
+};
+window.docukeepNativeImportCancelled=function(){
+ if(!cryptoKey)return;
+ document.getElementById('pageStatus').textContent='Scanner file import cancelled.';
+ trustedExternalInteractionUntil=0;resetInactivity();
+};
+
 ['cameraFallbackInput','photoInput','multiInput'].forEach(id=>{
   document.getElementById(id).addEventListener(
     'change',
@@ -4046,13 +4182,14 @@ function renderWorkingPages(){
 
 
 window.docukeepNativeAddPage = async function(dataUrl,pageNumber,totalPages){
+  if(!cryptoKey || workingPages.length>=20 || !document.getElementById('add').classList.contains('active')) return false;
   try{
     const hash = await pageFingerprint(dataUrl);
 
     if(workingPages.some(p=>p.hash===hash)){
       document.getElementById('pageStatus').textContent =
         'A duplicate scanned page was skipped.';
-      return;
+      return false;
     }
 
     workingPages.push({
@@ -4067,9 +4204,11 @@ window.docukeepNativeAddPage = async function(dataUrl,pageNumber,totalPages){
 
     document.getElementById('pageStatus').textContent =
       `Scanned page ${pageNumber} of ${totalPages}.`;
+    return true;
   }catch(err){
     document.getElementById('pageStatus').textContent =
       'One scanned page could not be added.';
+    return false;
   }
 };
 
