@@ -965,6 +965,36 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   .viewer-page{break-inside:avoid;border:0;margin-bottom:18px}
   .viewer-page img{max-height:none;width:100%;object-fit:contain}
 }
+
+/* Saved-document photo crop editor, optimized for touch and iPhone screens. */
+#docuCropModal{z-index:21000;padding:8px;overscroll-behavior:contain}
+#docuCropModal .docu-crop-card{
+ width:min(760px,100%);max-height:97dvh;max-height:97vh;
+ display:flex;flex-direction:column;gap:9px;
+ padding:12px;border-radius:15px;background:#fff;
+ overflow-y:auto;overscroll-behavior:contain
+}
+#docuCropModal h2{font-size:19px;margin:0}
+#docuCropModal .docu-crop-help{font-size:13px;line-height:1.4;margin:0;color:#35524a}
+#docuCropStage{
+ width:100%;height:min(60dvh,630px);min-height:245px;
+ display:block;touch-action:none;user-select:none;
+ background:#101918;border-radius:9px;border:1px solid #547467;
+ overflow:hidden;position:relative
+}
+#docuCropCanvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+#docuCropModal .docu-crop-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#docuCropModal .docu-crop-actions button{min-height:45px;font-size:14px;padding:9px 5px}
+#docuCropModal #docuCropStatus{margin:0;min-height:17px;font-size:13px}
+@media(max-width:460px){
+ #docuCropModal{padding:5px}
+ #docuCropModal .docu-crop-card{padding:10px;gap:7px}
+ #docuCropModal .docu-crop-actions button{font-size:12px}
+ #docuCropStage{height:min(56dvh,520px)}
+}
+@media(max-height:600px){
+ #docuCropStage{height:46vh;min-height:160px}
+}
 </style>
 <script>window.DOCUKEEP_NATIVE_IOS = true;</script>
 </head>
@@ -1409,6 +1439,21 @@ footer strong{color:var(--ink);letter-spacing:.03em}
   </div>
 </div>
 
+
+
+<div id="docuCropModal" class="modal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="docuCropTitle">
+ <div class="docu-crop-card">
+  <h2 id="docuCropTitle">✂️ Crop Photo</h2>
+  <p class="docu-crop-help">Drag the green corners to frame your document. Drag inside the box to move it. The original photo is unchanged until you tap Save Crop.</p>
+  <div id="docuCropStage"><canvas id="docuCropCanvas" aria-label="Interactive photo crop selection"></canvas></div>
+  <div class="docu-crop-actions">
+   <button id="docuCropReset" type="button" class="secondary">Reset</button>
+   <button id="docuCropCancel" type="button" class="secondary">Cancel</button>
+   <button id="docuCropSave" type="button" class="primary">Save Crop</button>
+  </div>
+  <div id="docuCropStatus" class="status" role="status" aria-live="polite"></div>
+ </div>
+</div>
 
 <div id="changePinModal" class="modal-shell no-print" role="dialog" aria-modal="true" aria-labelledby="changePinTitle">
   <div class="modal-card">
@@ -2908,6 +2953,8 @@ function showSetup(){
 }
 
 function showLocked(){
+  // Clear decrypted crop previews as soon as the vault is locked.
+  closeDocuCrop(true);
   clearTimeout(inactivityTimer);
   vaultLoadGeneration += 1;
   vaultDocumentsLoading = false;
@@ -3149,6 +3196,7 @@ async function requestVaultAccess(){
 }
 
 function showView(name){
+  if(name!=='viewer' && docuCropSession)closeDocuCrop(true);
   if(name==='vault' && !vaultAccessAuthorized){
     requestVaultAccess();
     return;
@@ -4750,6 +4798,223 @@ document.getElementById('emptyTrashBtn').addEventListener('click',async()=>{
   updateStorageStatus();
 });
 
+
+/* Full-resolution crop of an already saved page. Only preview is downscaled;
+   JPEG export uses the original encrypted document image pixels. */
+let docuCropSession = null;
+let docuCropGeneration = 0;
+let docuCropSaving = false;
+let docuCropDrag = null;
+const cropClamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+
+function closeDocuCrop(force=false){
+ if(docuCropSaving && !force) return;
+ docuCropGeneration++;
+ docuCropSession = null;
+ docuCropDrag = null;
+ docuCropSaving = false;
+ const modal=document.getElementById('docuCropModal');
+ if(modal)modal.classList.remove('open');
+ const canvas=document.getElementById('docuCropCanvas');
+ if(canvas){canvas.width=0;canvas.height=0;}
+ const status=document.getElementById('docuCropStatus');
+ if(status)status.textContent='';
+}
+function cropLayout(){
+ const state=docuCropSession;
+ if(!state || !state.img) return null;
+ const stage=document.getElementById('docuCropStage');
+ const canvas=document.getElementById('docuCropCanvas');
+ const w=stage.clientWidth,h=stage.clientHeight;
+ if(!w || !h)return null;
+ const dpr=Math.min(2,window.devicePixelRatio||1);
+ const cw=Math.round(w*dpr),ch=Math.round(h*dpr);
+ if(canvas.width!==cw || canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
+ const scale=Math.min(cw/state.img.naturalWidth,ch/state.img.naturalHeight);
+ return {canvas,ctx:canvas.getContext('2d'),cw,ch,
+  x:(cw-state.img.naturalWidth*scale)/2,
+  y:(ch-state.img.naturalHeight*scale)/2,
+  w:state.img.naturalWidth*scale,h:state.img.naturalHeight*scale};
+}
+function cropSelectionPixels(layout,selection){
+ return {x:layout.x+selection.x*layout.w,
+  y:layout.y+selection.y*layout.h,
+  w:selection.w*layout.w,h:selection.h*layout.h};
+}
+function drawDocuCrop(){
+ const s=docuCropSession,layout=cropLayout();
+ if(!s||!layout||!layout.ctx)return;
+ const {ctx,cw,ch}=layout,rect=cropSelectionPixels(layout,s.rect);
+ ctx.clearRect(0,0,cw,ch);
+ ctx.fillStyle='#101918';ctx.fillRect(0,0,cw,ch);
+ ctx.drawImage(s.img,layout.x,layout.y,layout.w,layout.h);
+ ctx.fillStyle='rgba(1,13,12,.65)';
+ ctx.fillRect(layout.x,layout.y,layout.w,Math.max(0,rect.y-layout.y));
+ ctx.fillRect(layout.x,rect.y+rect.h,layout.w,Math.max(0,layout.y+layout.h-(rect.y+rect.h)));
+ ctx.fillRect(layout.x,rect.y,Math.max(0,rect.x-layout.x),rect.h);
+ ctx.fillRect(rect.x+rect.w,rect.y,Math.max(0,layout.x+layout.w-(rect.x+rect.w)),rect.h);
+ ctx.strokeStyle='#7bf0be';ctx.lineWidth=2*Math.min(2,window.devicePixelRatio||1);
+ ctx.strokeRect(rect.x,rect.y,rect.w,rect.h);
+ ctx.strokeStyle='rgba(255,255,255,.42)';ctx.lineWidth=1*Math.min(2,window.devicePixelRatio||1);
+ for(let i=1;i<=2;i++){
+  const t=i/3;
+  ctx.beginPath();ctx.moveTo(rect.x+rect.w*t,rect.y);ctx.lineTo(rect.x+rect.w*t,rect.y+rect.h);
+  ctx.moveTo(rect.x,rect.y+rect.h*t);ctx.lineTo(rect.x+rect.w,rect.y+rect.h*t);ctx.stroke();
+ }
+ const size=7*Math.min(2,window.devicePixelRatio||1);
+ ctx.fillStyle='#fff';ctx.strokeStyle='#037b57';ctx.lineWidth=2;
+ for(const [x,y] of [[rect.x,rect.y],[rect.x+rect.w,rect.y],
+  [rect.x,rect.y+rect.h],[rect.x+rect.w,rect.y+rect.h]]){
+  ctx.fillRect(x-size,y-size,2*size,2*size);
+  ctx.strokeRect(x-size,y-size,2*size,2*size);
+ }
+}
+function cropPoint(event,layout){
+ const box=layout.canvas.getBoundingClientRect();
+ return {x:(event.clientX-box.left)*layout.cw/box.width,
+  y:(event.clientY-box.top)*layout.ch/box.height};
+}
+function cropPointerDown(event){
+ const s=docuCropSession,layout=cropLayout();
+ if(!s || !s.img || !layout || docuCropSaving || !event.isPrimary)return;
+ const point=cropPoint(event,layout),r=cropSelectionPixels(layout,s.rect);
+ const handles=[['nw',r.x,r.y],['ne',r.x+r.w,r.y],
+  ['sw',r.x,r.y+r.h],['se',r.x+r.w,r.y+r.h]];
+ const hit=25*Math.min(2,window.devicePixelRatio||1);
+ let mode='';
+ for(const [name,x,y] of handles){
+  if(Math.hypot(point.x-x,point.y-y)<hit){mode=name;break;}
+ }
+ if(!mode && point.x>=r.x && point.x<=r.x+r.w &&
+    point.y>=r.y && point.y<=r.y+r.h)mode='move';
+ if(!mode)return;
+ event.preventDefault();
+ docuCropDrag={id:event.pointerId,mode,start:{...s.rect},
+  x:(point.x-layout.x)/layout.w,y:(point.y-layout.y)/layout.h};
+ try{event.currentTarget.setPointerCapture(event.pointerId)}catch(err){}
+}
+function cropPointerMove(event){
+ const s=docuCropSession,drag=docuCropDrag,layout=cropLayout();
+ if(!s||!drag||!layout||event.pointerId!==drag.id)return;
+ event.preventDefault();
+ const p=cropPoint(event,layout);
+ const nx=(p.x-layout.x)/layout.w,ny=(p.y-layout.y)/layout.h;
+ const dx=nx-drag.x,dy=ny-drag.y,prev=drag.start;
+ const minW=Math.min(.18,Math.max(.025,42/s.img.naturalWidth));
+ const minH=Math.min(.18,Math.max(.025,42/s.img.naturalHeight));
+ let left=prev.x,top=prev.y,right=prev.x+prev.w,bottom=prev.y+prev.h;
+ if(drag.mode==='move'){
+  left=cropClamp(prev.x+dx,0,1-prev.w);
+  top=cropClamp(prev.y+dy,0,1-prev.h);
+  right=left+prev.w;bottom=top+prev.h;
+ }else{
+  if(drag.mode.includes('w'))left=cropClamp(prev.x+dx,0,right-minW);
+  if(drag.mode.includes('e'))right=cropClamp(prev.x+prev.w+dx,left+minW,1);
+  if(drag.mode.includes('n'))top=cropClamp(prev.y+dy,0,bottom-minH);
+  if(drag.mode.includes('s'))bottom=cropClamp(prev.y+prev.h+dy,top+minH,1);
+ }
+ s.rect={x:left,y:top,w:right-left,h:bottom-top};
+ drawDocuCrop();
+}
+function cropPointerUp(event){
+ if(docuCropDrag && docuCropDrag.id===event.pointerId)docuCropDrag=null;
+}
+async function startDocuCrop(doc,pageIndex){
+ if(!cryptoKey || !doc || !doc.pages?.[pageIndex])return;
+ closeDocuCrop(true);
+ const session=++docuCropGeneration,lockGeneration=vaultLoadGeneration;
+ const selected=doc.pages[pageIndex];
+ const img=new Image();
+ docuCropSession={doc,pageIndex,img:null,lockGeneration,
+  sourceData:selected.data,rect:{x:.04,y:.04,w:.92,h:.92}};
+ document.getElementById('docuCropModal').classList.add('open');
+ document.getElementById('docuCropStatus').textContent='Loading full-quality photo...';
+ img.onload=()=>{
+  const s=docuCropSession;
+  if(!s || session!==docuCropGeneration || lockGeneration!==vaultLoadGeneration)return;
+  s.img=img;
+  document.getElementById('docuCropStatus').textContent='';
+  drawDocuCrop();
+ };
+ img.onerror=()=>{
+  if(session===docuCropGeneration)
+   document.getElementById('docuCropStatus').textContent='Could not load this photo for cropping.';
+ };
+ img.src=selected.data;
+}
+async function saveDocuCrop(){
+ const s=docuCropSession;
+ if(!s||!s.img||docuCropSaving||!cryptoKey)return;
+ const doc=s.doc,index=s.pageIndex,lockGeneration=s.lockGeneration;
+ if(lockGeneration!==vaultLoadGeneration || doc.trashedAt)return;
+ const r=s.rect,img=s.img;
+ const w=img.naturalWidth,h=img.naturalHeight;
+ const sx=Math.max(0,Math.floor(r.x*w)),sy=Math.max(0,Math.floor(r.y*h));
+ const ex=Math.min(w,Math.ceil((r.x+r.w)*w)),ey=Math.min(h,Math.ceil((r.y+r.h)*h));
+ const cropW=ex-sx,cropH=ey-sy;
+ const status=document.getElementById('docuCropStatus');
+ if(cropW<40||cropH<40){status.textContent='Keep at least 40 pixels in each direction.';return;}
+ if(cropW>=w && cropH>=h){
+  status.textContent='Drag the corners inward before saving a crop.';
+  return;
+ }
+ const saveBtn=document.getElementById('docuCropSave');
+ const cancelBtn=document.getElementById('docuCropCancel');
+ docuCropSaving=true;saveBtn.disabled=true;cancelBtn.disabled=true;
+ status.textContent='Saving cropped photo securely...';
+ try{
+  const canvas=document.createElement('canvas');
+  canvas.width=cropW;canvas.height=cropH;
+  const ctx=canvas.getContext('2d');
+  if(!ctx)throw new Error('Crop canvas unavailable');
+  ctx.drawImage(img,sx,sy,cropW,cropH,0,0,cropW,cropH);
+  const data=canvas.toDataURL('image/jpeg',JPEG_QUALITY);
+  // Compute expensive extras before replacing the original saved page.
+  const hash=await pageFingerprint(data);
+  const thumbnail=index===0?await makeThumbnail(data):null;
+  if(lockGeneration!==vaultLoadGeneration || !cryptoKey ||
+     !docuCropSession || docuCropSession!==s) return;
+  const page=doc.pages[index];
+  if(!page||page.data!==s.sourceData)throw new Error('This page has changed');
+  const oldData=page.data,oldHash=page.hash,oldThumb=doc.thumbnail;
+  page.data=data;page.hash=hash;
+  if(index===0)doc.thumbnail=thumbnail;
+  try{await persistDoc(doc)}
+  catch(err){
+   if(lockGeneration===vaultLoadGeneration && cryptoKey){
+    page.data=oldData;page.hash=oldHash;doc.thumbnail=oldThumb;
+   }
+   throw err;
+  }
+  if(lockGeneration!==vaultLoadGeneration || !cryptoKey)return;
+  closeDocuCrop(true);
+  openDoc(doc.id,previousView);
+  document.getElementById('viewerStatus').textContent='Photo cropped and saved.';
+ }catch(err){
+  if(lockGeneration===vaultLoadGeneration && docuCropSession===s){
+   status.textContent='Could not save the crop. Your previous photo remains available.';
+  }
+ }finally{
+  docuCropSaving=false;
+  saveBtn.disabled=false;cancelBtn.disabled=false;
+ }
+}
+document.getElementById('docuCropCanvas').addEventListener('pointerdown',cropPointerDown);
+document.getElementById('docuCropCanvas').addEventListener('pointermove',cropPointerMove);
+document.getElementById('docuCropCanvas').addEventListener('pointerup',cropPointerUp);
+document.getElementById('docuCropCanvas').addEventListener('pointercancel',cropPointerUp);
+document.getElementById('docuCropReset').addEventListener('click',()=>{
+ if(!docuCropSession || docuCropSaving)return;
+ docuCropSession.rect={x:0,y:0,w:1,h:1};
+ drawDocuCrop();
+});
+document.getElementById('docuCropCancel').addEventListener('click',()=>closeDocuCrop());
+document.getElementById('docuCropSave').addEventListener('click',saveDocuCrop);
+window.addEventListener('resize',()=>{if(docuCropSession?.img)drawDocuCrop()});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape' && docuCropSession && !docuCropSaving)closeDocuCrop();
+});
+
 async function openDoc(id,from){
   const doc = documents.find(d=>d.id===id);
 
@@ -4823,6 +5088,7 @@ async function openDoc(id,from){
         <button type="button" class="secondary movePageUp" data-i="${i}" ${i===0?'disabled':''}>↑ Up</button>
         <button type="button" class="secondary movePageDown" data-i="${i}" ${i===doc.pages.length-1?'disabled':''}>↓ Down</button>
         <button type="button" class="secondary rotatePage" data-i="${i}">↻ Rotate</button>
+        <button type="button" class="secondary cropSavedPage" data-i="${i}">✂️ Crop</button>
         <button type="button" class="secondary cleanSavedPage" data-i="${i}">✨ Clean</button>
         <button type="button" class="secondary bwSavedPage" data-i="${i}">◐ B&amp;W</button>
         ${doc.pages.length > 1 ? '<button type="button" class="secondary danger deletePage" data-i="'+i+'">Delete Page</button>' : ''}
@@ -4884,6 +5150,13 @@ async function openDoc(id,from){
         document.getElementById('viewerStatus').textContent =
           'Could not rotate this page.';
       }
+    });
+  });
+
+  box.querySelectorAll('.cropSavedPage').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const index=Number(btn.dataset.i);
+      if(doc.pages[index])startDocuCrop(doc,index);
     });
   });
 
