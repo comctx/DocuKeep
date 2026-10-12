@@ -1581,6 +1581,8 @@ let backgroundLockTimer = null;
 let unlockGraceUntil = 0;
 let unlockInputTimer = null;
 let unlockInProgress = false;
+let vaultLoadGeneration = 0;
+let vaultDocumentsLoading = false;
 let vaultAccessAuthorized = false;
 let secureDocAccessAuthorized = false;
 let masterKeyRawB64 = null;
@@ -2614,10 +2616,18 @@ async function unlockApp(){
   if(Date.now() < pinLockoutUntil){
     const seconds = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
     status.textContent = `Too many incorrect attempts. Try again in ${seconds} seconds.`;
+    unlockInProgress = false;
     return;
   }
 
+  // Respond now, while the mandatory cryptographic PIN check runs.
+  status.textContent = 'Unlocking securely...';
+  const attemptGeneration = vaultLoadGeneration;
   const config = await idbGet(CONFIG_STORE,'vault');
+  if(attemptGeneration !== vaultLoadGeneration){
+    unlockInProgress = false;
+    return;
+  }
 
   if(!config){
     unlockInProgress = false;
@@ -2626,22 +2636,24 @@ async function unlockApp(){
   }
 
   try{
-    if(isModernVault(config)){
+    const modernVault = isModernVault(config);
+    if(modernVault){
       const rawMasterB64 = await unwrapMasterKeyWithPin(pin,config);
       const key = await importMasterKey(base64ToBytes(rawMasterB64));
       await verifyMasterKey(key,config);
+      // A background lock can occur during WebCrypto verification.
+      // Never assign a decrypted vault key to a newer locked session.
+      if(attemptGeneration !== vaultLoadGeneration) return;
 
       cryptoKey = key;
       masterKeyRawB64 = rawMasterB64;
 
       storeMasterKeyForFaceID();
 
-      await loadDocuments();
-
+      // Populate the home screen as soon as the PIN has been verified.
+      // Loading and upgrading saved documents must not delay the unlock UI.
       if(config.pinLength !== pin.length){
-        try{
-          await idbPut(CONFIG_STORE,{...config,pinLength:pin.length});
-        }catch(err){}
+        idbPut(CONFIG_STORE,{...config,pinLength:pin.length}).catch(()=>{});
       }
 
     }else{
@@ -2655,6 +2667,7 @@ async function unlockApp(){
       await migrateLegacyVault(pin,config,legacyKey);
     }
 
+    if(attemptGeneration !== vaultLoadGeneration) return;
     failedPinAttempts = 0;
     pinLockoutUntil = 0;
 
@@ -2666,7 +2679,29 @@ async function unlockApp(){
     // unlock is not immediately mistaken for backgrounding.
     unlockGraceUntil = Date.now() + 10000;
 
-    await showUnlockedApp();
+    // Open the authenticated home screen without waiting for each saved file
+    // to decrypt. A background load is cancelled if DocuKeep gets locked.
+    vaultDocumentsLoading = modernVault;
+    showUnlockedApp().catch(()=>{});
+
+    if(modernVault){
+      const session = vaultLoadGeneration;
+      loadDocuments().then(loaded=>{
+        if(!loaded || session !== vaultLoadGeneration || !cryptoKey) return;
+        vaultDocumentsLoading = false;
+        renderHome();
+        if(document.getElementById('docs').classList.contains('active')) renderDocs();
+        if(document.getElementById('search').classList.contains('active')) renderSearch();
+        if(document.getElementById('trash').classList.contains('active')) renderTrash();
+        updateStorageStatus();
+      }).catch(()=>{
+        if(session === vaultLoadGeneration && cryptoKey){
+          vaultDocumentsLoading = false;
+          const count = document.getElementById('homeDocCount');
+          if(count) count.textContent = 'Could not load documents. Lock and try again.';
+        }
+      });
+    }
 
   }catch(err){
     const message = String(err && err.message || '');
@@ -2695,14 +2730,23 @@ async function unlockApp(){
 }
 
 async function loadDocuments(){
+  // A pending load must never repopulate plaintext after the vault re-locks.
+  const session = vaultLoadGeneration;
+  const unlockedKey = cryptoKey;
+  const current = ()=>!!unlockedKey &&
+    session === vaultLoadGeneration && unlockedKey === cryptoKey;
+  if(!current()) return false;
   documents = [];
   corruptedRecordCount = 0;
 
   const rows = await idbGetAll(DOC_STORE);
+  if(!current()) return false;
 
   for(const row of rows){
+    if(!current()) return false;
     try{
-      const doc = await decryptObject(row,cryptoKey);
+      const doc = await decryptObject(row,unlockedKey);
+      if(!current()) return false;
 
       // Lightweight migration for documents created by older builds.
       if(!doc.schemaVersion) doc.schemaVersion = 1;
@@ -2710,6 +2754,7 @@ async function loadDocuments(){
       if(!doc.updatedAt) doc.updatedAt = doc.createdAt;
 
       let derivedChanged = await ensureDocDerivedData(doc);
+      if(!current()) return false;
 
       if(doc.schemaVersion < SCHEMA_VERSION){
         doc.schemaVersion = SCHEMA_VERSION;
@@ -2718,18 +2763,22 @@ async function loadDocuments(){
       }
 
       if(derivedChanged){
+        if(!current()) return false;
         await persistDoc(doc);
       }
-
+      if(!current()) return false;
       documents.push(doc);
 
     }catch(err){
+      if(!current()) return false;
       // AES-GCM authentication failure or damaged record.
       corruptedRecordCount += 1;
     }
   }
 
+  if(!current()) return false;
   documents.sort((a,b)=>b.id-a.id);
+  return true;
 }
 
 async function persistDoc(doc){
@@ -2860,6 +2909,8 @@ function showSetup(){
 
 function showLocked(){
   clearTimeout(inactivityTimer);
+  vaultLoadGeneration += 1;
+  vaultDocumentsLoading = false;
 
   const unlockInput = document.getElementById('unlockPin');
   const unlockStatus = document.getElementById('unlockStatus');
@@ -3161,8 +3212,9 @@ document.getElementById('unlockPin').addEventListener('input',async e=>{
   }catch(err){}
 
   if(expectedLength >= 4 && expectedLength <= 8){
-    if(input.value.length === expectedLength){
-      unlockInputTimer = setTimeout(()=>unlockApp(),120);
+    if(input.value.length === expectedLength && !unlockInProgress){
+      // Start PIN verification the instant the last digit is entered.
+      unlockApp();
     }
     return;
   }
@@ -3175,6 +3227,15 @@ document.getElementById('unlockPin').addEventListener('input',async e=>{
       unlockApp();
     }
   },1400);
+});
+
+// For older vaults without a saved PIN length, Done unlocks immediately
+// without waiting for the idle-typing fallback. Do not weaken PIN checks.
+document.getElementById('unlockPin').addEventListener('keydown',e=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  clearTimeout(unlockInputTimer);
+  if(!unlockInProgress) unlockApp();
 });
 
 document.getElementById('forgotPinBtn').addEventListener('click',startForgotPinRecovery);
@@ -4380,21 +4441,21 @@ function renderHome(){
   const trashCount = document.getElementById('homeTrashCount');
 
   if(docCount){
-    docCount.textContent =
+    docCount.textContent = vaultDocumentsLoading ? 'Loading documents...' :
       regularDocs.length === 1
         ? '1 saved document'
         : `${regularDocs.length} saved documents`;
   }
 
   if(vaultCount){
-    vaultCount.textContent =
+    vaultCount.textContent = vaultDocumentsLoading ? 'Loading...' :
       vaultDocs.length === 1
         ? '1 protected document'
         : `${vaultDocs.length} protected documents`;
   }
 
   if(trashCount){
-    trashCount.textContent =
+    trashCount.textContent = vaultDocumentsLoading ? 'Loading...' :
       trashDocs.length === 1
         ? '1 item in Trash'
         : `${trashDocs.length} items in Trash`;
