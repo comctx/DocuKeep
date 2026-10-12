@@ -2641,6 +2641,9 @@ async function unlockApp(){
       const rawMasterB64 = await unwrapMasterKeyWithPin(pin,config);
       const key = await importMasterKey(base64ToBytes(rawMasterB64));
       await verifyMasterKey(key,config);
+      // A background lock can occur during WebCrypto verification.
+      // Never assign a decrypted vault key to a newer locked session.
+      if(attemptGeneration !== vaultLoadGeneration) return;
 
       cryptoKey = key;
       masterKeyRawB64 = rawMasterB64;
@@ -3224,6 +3227,15 @@ document.getElementById('unlockPin').addEventListener('input',async e=>{
       unlockApp();
     }
   },1400);
+});
+
+// For older vaults without a saved PIN length, Done unlocks immediately
+// without waiting for the idle-typing fallback. Do not weaken PIN checks.
+document.getElementById('unlockPin').addEventListener('keydown',e=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  clearTimeout(unlockInputTimer);
+  if(!unlockInProgress) unlockApp();
 });
 
 document.getElementById('forgotPinBtn').addEventListener('click',startForgotPinRecovery);
