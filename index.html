@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173f35">
+<meta name="description" content="DocuKeep helps you scan, organize and protect important documents on your device.">
+<link rel="manifest" href="./manifest.webmanifest">
 <title>DocuKeep</title>
 <style>
 :root{
@@ -996,7 +998,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
  #docuCropStage{height:46vh;min-height:160px}
 }
 </style>
-<script>window.DOCUKEEP_NATIVE_IOS = true;</script>
+
 </head>
 <body>
 <div id="launchSplash" class="launch-splash" aria-hidden="true">
@@ -6039,5 +6041,16 @@ async function init(){
 init();
 </script>
 
+<script>
+// Register the existing DocuKeep offline service worker for secure HTTPS hosting.
+// The bundled iOS application uses a separate copy of the web interface.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // DocuKeep can still run online if offline setup is unavailable.
+    });
+  });
+}
+</script>
 </body>
 </html>
