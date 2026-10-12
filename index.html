@@ -1223,7 +1223,7 @@ footer strong{color:var(--ink);letter-spacing:.03em}
       <button id="importScannerBtn" type="button" class="fake-file">
         <span class="ico">🖨️</span>
         <strong>Import Scanner File</strong><br>
-        <span class="small">Any scanner app • PDF or image from Files</span>
+        <span class="small">Scan with any brand, save to Files, then import PDF or image</span>
       </button>
       <input id="externalScannerFile" type="file" accept=".pdf,application/pdf,image/jpeg,image/png,image/heic,image/heif,image/webp,image/*" multiple style="display:none">
       <input id="cameraFallbackInput" type="file" accept="image/*" capture="environment" style="display:none">
@@ -4053,6 +4053,8 @@ function loadLocalPdfRenderer(){
   const js=document.createElement('script');
   js.src=PDFJS_URL;
   js.async=true;
+  js.crossOrigin='anonymous';
+  js.referrerPolicy='no-referrer';
   js.onload=()=>{
    if(!window.pdfjsLib){reject(new Error('PDF renderer unavailable'));return;}
    window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;
@@ -4082,7 +4084,8 @@ async function importScannerFiles(files){
     status.textContent='Opening scanned PDF locally...';
     const reader=await loadLocalPdfRenderer();
     const data=new Uint8Array(await file.arrayBuffer());
-    pdf=await reader.getDocument({data,useSystemFonts:true}).promise;
+    // Disable dynamic evaluation when processing untrusted PDFs.
+    pdf=await reader.getDocument({data,useSystemFonts:true,isEvalSupported:false}).promise;
     if(pdf.numPages>20-workingPages.length) limited=true;
     const maxPages=Math.min(pdf.numPages,20-workingPages.length);
     for(let index=1;index<=maxPages;index++){
