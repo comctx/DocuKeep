@@ -3,8 +3,10 @@ import WebKit
 import VisionKit
 import LocalAuthentication
 import Security
+import PDFKit
+import UniformTypeIdentifiers
 
-final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIDocumentPickerDelegate {
     private var webView: WKWebView!
 
     private final class FileAccumulator {
@@ -19,6 +21,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     }
 
     private var pendingFiles: [String: FileAccumulator] = [:]
+    private var scannerFileSlots = 20
     private let biometricService = "com.donaldreckman.docukeep.recovery"
     private let biometricAccount = "vault-master-key"
 
@@ -40,6 +43,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
         }
         configuration.userContentController.add(self, name: "docukeepFile")
         configuration.userContentController.add(self, name: "docukeepCamera")
+        configuration.userContentController.add(self, name: "docukeepScannerImport")
         configuration.userContentController.add(self, name: "docukeepBiometric")
 
         webView = WKWebView(frame: .zero, configuration: configuration)
@@ -77,6 +81,7 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepFile")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepCamera")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepScannerImport")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "docukeepBiometric")
     }
 
@@ -109,6 +114,17 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
                   action == "scan" else { return }
 
             presentDocumentScanner()
+            return
+        }
+
+        // Universal document scanner import: Apple's Files picker supports
+        // files exported by any scanner or scanner companion application.
+        if message.name == "docukeepScannerImport" {
+            guard let body = message.body as? [String: Any],
+                  let action = body["action"] as? String,
+                  action == "import" else { return }
+            let available = max(0, min(20, body["slots"] as? Int ?? 20))
+            presentScannerFilePicker(availableSlots: available)
             return
         }
 
@@ -254,6 +270,156 @@ final class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate
         DispatchQueue.main.async { [weak self] in
             self?.webView.evaluateJavaScript(js)
         }
+    }
+
+
+    // MARK: - Universal scanner file import (PDF/JPEG/PNG/HEIC)
+    // A third-party scanner saves a file to Files. No device-specific SDK,
+    // local-network discovery, or scanner credentials are required.
+
+    private func presentScannerFilePicker(availableSlots: Int) {
+        guard availableSlots > 0 else {
+            reportScannerImportError("This document already has 20 pages. Save it and start another document.")
+            return
+        }
+        scannerFileSlots = availableSlots
+        let picker = UIDocumentPickerViewController(
+            forOpeningContentTypes: [.pdf, .image],
+            asCopy: true
+        )
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        picker.modalPresentationStyle = .pageSheet
+        present(picker, animated: true)
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        webView.callAsyncJavaScript(
+            "window.docukeepNativeImportCancelled?.();",
+            arguments: [:],
+            in: nil,
+            in: .page,
+            completionHandler: nil
+        )
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController,
+                        didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else {
+            documentPickerWasCancelled(controller)
+            return
+        }
+        let slots = scannerFileSlots
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let opened = url.startAccessingSecurityScopedResource()
+            defer { if opened { url.stopAccessingSecurityScopedResource() } }
+            var images: [String] = []
+            var total = 0
+            var limited = false
+            let ext = url.pathExtension.lowercased()
+            if ext == "pdf" {
+                guard let pdf = PDFDocument(url: url), !pdf.isLocked else {
+                    DispatchQueue.main.async {
+                        self?.reportScannerImportError("Could not open this PDF. Export an unlocked PDF from your scanner.")
+                    }
+                    return
+                }
+                total = pdf.pageCount
+                if total == 0 {
+                    DispatchQueue.main.async {
+                        self?.reportScannerImportError("This PDF has no pages.")
+                    }
+                    return
+                }
+                limited = total > slots
+                for i in 0..<min(total, slots) {
+                    guard let page = pdf.page(at: i) else { continue }
+                    let bounds = page.bounds(for: .mediaBox)
+                    let longest = max(bounds.width, bounds.height)
+                    guard longest > 0 else { continue }
+                    // Render vector PDF pages sharply at up to 3200 pixels.
+                    let scale = min(4.0, 3200.0 / longest)
+                    let size = CGSize(width: max(1, bounds.width * scale),
+                                      height: max(1, bounds.height * scale))
+                    let image = page.thumbnail(of: size, for: .mediaBox)
+                    if let jpeg = image.jpegData(compressionQuality: 0.96) {
+                        images.append("data:image/jpeg;base64," + jpeg.base64EncodedString())
+                    }
+                }
+            } else {
+                guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+                      let image = UIImage(data: data) else {
+                    DispatchQueue.main.async {
+                        self?.reportScannerImportError("This scan image could not be opened. Select a PDF, JPEG, PNG, or HEIC file.")
+                    }
+                    return
+                }
+                total = 1
+                let resized = self?.resizeForDocumentStorage(image, maxSide: 4200) ?? image
+                guard let jpeg = resized.jpegData(compressionQuality: 0.97) else {
+                    DispatchQueue.main.async {
+                        self?.reportScannerImportError("Could not convert this scanned image.")
+                    }
+                    return
+                }
+                images.append("data:image/jpeg;base64," + jpeg.base64EncodedString())
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if images.isEmpty {
+                    self.reportScannerImportError("No readable scanned pages were found.")
+                    return
+                }
+                self.deliverScannerPages(images, position: 0, imported: 0,
+                                         limited: limited)
+            }
+        }
+    }
+
+    private func deliverScannerPages(_ images: [String], position: Int,
+                                     imported: Int, limited: Bool) {
+        if position >= images.count {
+            webView.callAsyncJavaScript(
+                "window.docukeepNativeImportFinished?.(added, total, limited);",
+                arguments: ["added": imported, "total": images.count, "limited": limited],
+                in: nil, in: .page, completionHandler: nil
+            )
+            return
+        }
+
+        webView.callAsyncJavaScript(
+            """
+            if (typeof window.docukeepNativeAddPage !== 'function') return false;
+            return await window.docukeepNativeAddPage(dataUrl, pageNumber, totalPages);
+            """,
+            arguments: [
+                "dataUrl": images[position],
+                "pageNumber": position + 1,
+                "totalPages": images.count
+            ],
+            in: nil,
+            in: .page
+        ) { [weak self] result in
+            switch result {
+            case .success(let value):
+                let added = (value as? Bool) == true ? 1 : 0
+                self?.deliverScannerPages(images, position: position + 1,
+                                          imported: imported + added,
+                                          limited: limited)
+            case .failure:
+                self?.reportScannerImportError("Import stopped. Check that DocuKeep is unlocked, then try again.")
+            }
+        }
+    }
+
+    private func reportScannerImportError(_ message: String) {
+        webView.callAsyncJavaScript(
+            "window.docukeepNativeImportFailed?.(message);",
+            arguments: ["message": message],
+            in: nil,
+            in: .page,
+            completionHandler: nil
+        )
     }
 
     // MARK: - Native document scanner
